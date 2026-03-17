@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/samples.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/OpenAI.Codex.Sdk.csproj" />
+  </Folder>
+</Solution>
