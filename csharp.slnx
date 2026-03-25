@@ -2,7 +2,11 @@
   <Folder Name="/samples/">
     <Project Path="samples/samples.csproj" />
   </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
   <Folder Name="/src/">
-    <Project Path="src/OpenAI.Codex.Sdk.csproj" />
+    <Project Path="src/CodexSdk/Codex.Sdk.csproj" />
   </Folder>
 </Solution>

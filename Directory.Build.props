@@ -1,0 +1,19 @@
+﻿<Project>
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageVersion>0.0.1-preview.1</PackageVersion>
+		<Title>OpenAI Codex SDK for .NET</Title>
+		<Authors>zxyao</Authors>
+		<Description>.NET SDK for OpenAI Codex</Description>
+		<PackageProjectUrl>https://github.com/zxyao145/codex-sdk-csharp</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/zxyao145/codex-sdk-csharp</RepositoryUrl>
+		<PackageTags>codex;ai;sdk;openai</PackageTags>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<Optimize>true</Optimize>
+	</PropertyGroup>
+</Project>
