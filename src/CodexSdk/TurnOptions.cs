@@ -1,4 +1,4 @@
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>Options for a single turn (prompt) within a thread.</summary>
 public sealed class TurnOptions

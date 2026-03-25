@@ -1,4 +1,6 @@
-namespace OpenAI.Codex;
+using OpenAI.Codex;
+
+namespace OpenAI.CodexSdk;
 
 /// <summary>
 /// Main entry point for interacting with the Codex agent.

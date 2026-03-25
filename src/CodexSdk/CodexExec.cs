@@ -1,4 +1,5 @@
-using OpenAI.Codex.Utils;
+using OpenAI.CodexSdk;
+using OpenAI.CodexSdk.Utils;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;

@@ -1,7 +1,8 @@
+using OpenAI.Codex;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>The completed result of a buffered <see cref="Thread.RunAsync"/> call.</summary>
 public class Turn

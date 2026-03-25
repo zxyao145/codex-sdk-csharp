@@ -1,4 +1,4 @@
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>
 /// A value that can appear in a Codex config object.

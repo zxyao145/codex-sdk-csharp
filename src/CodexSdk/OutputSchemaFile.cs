@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>
 /// Manages a temporary file holding a JSON schema for the <c>--output-schema</c> CLI flag.

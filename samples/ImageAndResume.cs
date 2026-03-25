@@ -1,6 +1,6 @@
 // Demonstrates local-image input and thread resumption.
 
-using OpenAI.Codex;
+using OpenAI.CodexSdk;
 
 namespace OpenAI.Codex.Samples;
 

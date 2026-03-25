@@ -2,7 +2,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>Top-level JSONL events emitted by <c>codex exec</c>.</summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]

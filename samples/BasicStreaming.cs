@@ -1,6 +1,6 @@
 // Mirrors sdk/typescript/samples/basic_streaming.ts
 
-using OpenAI.Codex;
+using OpenAI.CodexSdk;
 
 namespace OpenAI.Codex.Samples;
 

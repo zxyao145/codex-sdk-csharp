@@ -3,7 +3,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>
 /// <see cref="JsonStringEnumConverter{T}"/> variant that converts enum member names

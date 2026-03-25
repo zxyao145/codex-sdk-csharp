@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>OpenAI.Codex</RootNamespace>
+    <RootNamespace>OpenAI.CodexSdk</RootNamespace>
   </PropertyGroup>
 
 </Project>

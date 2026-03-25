@@ -1,4 +1,4 @@
-namespace OpenAI.Codex;
+namespace OpenAI.CodexSdk;
 
 /// <summary>Determines when the agent must pause and request human approval.</summary>
 public enum ApprovalMode
