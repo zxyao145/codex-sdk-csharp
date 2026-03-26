@@ -30,7 +30,9 @@ public sealed class CodexAIAgent : AIAgent
 
     protected override ValueTask<AgentSession> CreateSessionCoreAsync(CancellationToken cancellationToken = default)
     {
-        return ValueTask.FromResult<AgentSession>(new CodexAgentSession());
+        var threadId = (_options.ThreadId ?? Guid.NewGuid()).ToString();
+
+        return ValueTask.FromResult<AgentSession>(new CodexAgentSession(threadId));
     }
 
     protected override ValueTask<JsonElement> SerializeSessionCoreAsync(
@@ -130,9 +132,16 @@ public sealed class CodexAIAgent : AIAgent
 
     private Thread GetThread(CodexAgentSession session)
     {
-        return string.IsNullOrWhiteSpace(session.ThreadId)
-            ? _codex.StartThread(_options.ThreadOptions)
-            : _codex.ResumeThread(session.ThreadId, _options.ThreadOptions);
+        var sessionId = string.IsNullOrWhiteSpace(session.ThreadId)
+            ? Guid.NewGuid().ToString()
+            : session.ThreadId;
+
+        if (_options.IsResume)
+        {
+            return _codex.ResumeThread(sessionId, _options.ThreadOptions);
+        }
+
+        return _codex.StartThread(_options.ThreadOptions, sessionId);
     }
 
     private static string CombineUserText(IEnumerable<ChatMessage> messages)

@@ -9,5 +9,9 @@ public sealed record CodexAIAgentOptions
 
     public ThreadOptions ThreadOptions { get; init; } = new();
 
+    public Guid? ThreadId { get; init; }
+
+    public bool IsResume { get; init; }
+
     public ChatHistoryProvider? ChatHistoryProvider { get; init; }
 }

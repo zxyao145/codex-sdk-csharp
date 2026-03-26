@@ -66,6 +66,30 @@ class CodexMafAgent
         Console.WriteLine();
         Console.WriteLine("Resumed response:");
         Console.WriteLine(resumedResponse.Text);
+
+        await CustomSessionId(codexAIAgentOptions, restoredSession);
+    }
+
+    private static async Task CustomSessionId(CodexAIAgentOptions codexAIAgentOptions, AgentSession restoredSession)
+    {
+        if (restoredSession is not CodexAgentSession codexSession ||
+            !Guid.TryParse(codexSession.ThreadId, out var resumedThreadId))
+        {
+            throw new InvalidOperationException("Expected a GUID Codex thread ID after restoring the session.");
+        }
+
+        var resumedFromOptionsAgent = new CodexAIAgent(codexAIAgentOptions with
+        {
+            ThreadId = resumedThreadId,
+            IsResume = true,
+        });
+
+        var resumedFromOptionsResponse = await resumedFromOptionsAgent.RunAsync(
+            "Continue from the existing thread selected by the agent options and mention the previous task.");
+
+        Console.WriteLine();
+        Console.WriteLine("Resumed from options:");
+        Console.WriteLine(resumedFromOptionsResponse.Text);
     }
 
     private static string? TryGetAdditionalProperty(AgentResponseUpdate update, string key)

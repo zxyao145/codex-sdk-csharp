@@ -33,8 +33,8 @@ public sealed class Codex
     /// </summary>
     /// <param name="options">Per-thread configuration overrides.</param>
     /// <returns>A new <see cref="Thread"/> instance.</returns>
-    public Thread StartThread(ThreadOptions? options = null) =>
-        new(_exec, _options, options ?? new ThreadOptions());
+    public Thread StartThread(ThreadOptions? options = null, string? id = null) =>
+        new(_exec, _options, options ?? new ThreadOptions(), id);
 
     /// <summary>
     /// Resumes a conversation with the agent based on a previously recorded thread ID.
