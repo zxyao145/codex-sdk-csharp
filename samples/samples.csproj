@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\CodexSdk\CodexSdk.csproj" />
+    <ProjectReference Include="..\src\CodexSdk.MAF\CodexSdk.MAF.csproj" />
   </ItemGroup>
 
 </Project>

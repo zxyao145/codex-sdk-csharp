@@ -1,6 +1,7 @@
 // Demonstrates local-image input and thread resumption.
 
 using OpenAI.CodexSdk;
+using CodexClient = OpenAI.CodexSdk.Codex;
 
 namespace OpenAI.Codex.Samples;
 
@@ -11,7 +12,7 @@ class ImageAndResume
     {
 
 
-        var codex = new Codex();
+        var codex = new CodexClient();
 
         // ── Image input ──────────────────────────────────────────────────────────────
         var thread = codex.StartThread(new ThreadOptions
@@ -33,7 +34,7 @@ class ImageAndResume
         var savedId = thread.Id ?? throw new InvalidOperationException("Thread ID not set after first turn.");
 
         // In a later process / request:
-        var codex2 = new Codex();
+        var codex2 = new CodexClient();
         var resumed = codex2.ResumeThread(savedId);
 
         var turn2 = await resumed.RunAsync("Continue the analysis from where we left off.");

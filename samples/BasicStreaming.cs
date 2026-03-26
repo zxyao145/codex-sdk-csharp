@@ -1,6 +1,7 @@
 // Mirrors sdk/typescript/samples/basic_streaming.ts
 
 using OpenAI.CodexSdk;
+using CodexClient = OpenAI.CodexSdk.Codex;
 
 namespace OpenAI.Codex.Samples;
 
@@ -11,7 +12,7 @@ class BasicStreaming
 
         // Optionally point at a locally built binary:
         // var codex = new Codex(new CodexOptions { CodexPathOverride = "/path/to/codex" });
-        var codex = new Codex();
+        var codex = new CodexClient();
 
         var thread = codex.StartThread();
 

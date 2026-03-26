@@ -1,6 +1,7 @@
 // Mirrors sdk/typescript/samples/structured_output.ts
 
-using OpenAI.Codex;
+using OpenAI.CodexSdk;
+using CodexClient = OpenAI.CodexSdk.Codex;
 
 namespace OpenAI.Codex.Samples;
 
@@ -10,7 +11,7 @@ class StructuredOutput
     {
         Console.WriteLine("=== Structured output ===");
 
-        var codex = new Codex();
+        var codex = new CodexClient();
         var thread = codex.StartThread();
 
         // JSON Schema describing the expected response shape.
