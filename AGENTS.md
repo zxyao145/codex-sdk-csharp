@@ -1,16 +1,16 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Root `csharp.slnx` ties together the SDK and samples; run commands from the repository root.
+- Root `codexsdk.slnx` ties together the SDK and samples; run commands from the repository root.
 - Library code lives in `src/`, with the `OpenAI.Codex.Sdk` project (`OpenAI.Codex.Sdk.csproj`) targeting `.NET 10`. Arrange files so namespaces follow `OpenAI.Codex.*`, and group helpers under `src/Utils/` when they are reused.
 - Sample apps are under `samples/`, referencing the SDK via `<ProjectReference>`. Use this folder to showcase new features and keep runnable examples up to date.
 - Build artifacts (`bin/`, `obj/`) are generated in each project folder; keep them out of version control.
 
 ## Build, Test, and Development Commands
-- Restore dependencies: `dotnet restore csharp.slnx`.
-- Compile the SDK and samples: `dotnet build csharp.slnx --configuration Release` (use `Debug` while iterating).
+- Restore dependencies: `dotnet restore codexsdk.slnx`.
+- Compile the SDK and samples: `dotnet build codexsdk.slnx --configuration Release` (use `Debug` while iterating).
 - Run samples: `dotnet run --project samples/samples.csproj`.
-- Run formatting: `dotnet format csharp.slnx` before sending reviews to enforce analyzer defaults.
+- Run formatting: `dotnet format codexsdk.slnx` before sending reviews to enforce analyzer defaults.
 - Tests are not yet present; when you add a test project, invoke it with `dotnet test <path-to-test-csproj>`.
 
 ## Coding Style & Naming Conventions
