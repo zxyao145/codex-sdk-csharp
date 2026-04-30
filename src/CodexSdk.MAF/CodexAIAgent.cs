@@ -160,7 +160,9 @@ public sealed class CodexAIAgent : AIAgent
         IEnumerable<ChatMessage> messages = inputMessages;
         if (ChatHistoryProvider is not null)
         {
+#pragma warning disable MAAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             var invoking = new ChatHistoryProvider.InvokingContext(this, session, inputMessages);
+#pragma warning restore MAAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
             messages = await ChatHistoryProvider.InvokingAsync(invoking, cancellationToken);
         }
 
@@ -185,7 +187,9 @@ public sealed class CodexAIAgent : AIAgent
             return;
         }
 
+#pragma warning disable MAAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         var invoked = new ChatHistoryProvider.InvokedContext(this, session, requestMessages, responseMessages);
+#pragma warning restore MAAI001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
         await ChatHistoryProvider.InvokedAsync(invoked, cancellationToken);
     }
 }
