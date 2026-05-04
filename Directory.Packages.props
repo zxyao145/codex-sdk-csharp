@@ -6,10 +6,10 @@
   <ItemGroup>
     <PackageVersion Include="CodexSdk" Version="$(PackageVersion)" />
   </ItemGroup>
-	<!--maf-->
+  <!--maf-->
   <ItemGroup>
-	<PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0-preview.1.26104.118" />
-	<PackageVersion Include="Microsoft.Agents.AI" Version="1.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.7" />
+    <PackageVersion Include="Microsoft.Agents.AI" Version="1.3.0" />
   </ItemGroup>
   <!--utest-->
   <ItemGroup>

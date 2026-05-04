@@ -1,5 +1,6 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using OpenAI.CodexSdk.MAF.Internal;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -13,17 +14,19 @@ public sealed class CodexAIAgent : AIAgent
 {
     private readonly CodexAIAgentOptions _options;
     private readonly Codex _codex;
+    private readonly ILogger? _logger;
 
     public CodexAIAgent()
         : this(new CodexAIAgentOptions())
     {
     }
 
-    public CodexAIAgent(CodexAIAgentOptions? options)
+    public CodexAIAgent(CodexAIAgentOptions? options, ILogger? logger = null)
     {
         _options = options ?? new CodexAIAgentOptions();
-        _codex = new Codex(_options.CodexOptions);
+        _codex = new Codex(_options.CodexOptions, logger);
         ChatHistoryProvider = _options.ChatHistoryProvider;
+        _logger = logger;
     }
 
     public ChatHistoryProvider? ChatHistoryProvider { get; }
@@ -117,6 +120,7 @@ public sealed class CodexAIAgent : AIAgent
             {
                 continue;
             }
+
 
             if (update.Role == ChatRole.Assistant)
             {

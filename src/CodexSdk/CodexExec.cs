@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using OpenAI.CodexSdk;
 using OpenAI.CodexSdk.Utils;
 using System.Diagnostics;
@@ -15,6 +16,7 @@ internal sealed class CodexExecArgs
     public string? BaseUrl { get; init; }
     public string? ApiKey { get; init; }
     public string? ThreadId { get; init; }
+    public bool IsResume { get; init; }
     public IReadOnlyList<string>? Images { get; init; }
 
     // --model
@@ -55,15 +57,19 @@ internal sealed partial class CodexExec
     private readonly string _executablePath;
     private readonly IReadOnlyDictionary<string, string>? _envOverride;
     private readonly IReadOnlyDictionary<string, CodexConfigValue>? _configOverrides;
+    private readonly ILogger? _logger;
 
     public CodexExec(
         string? executablePath = null,
         IReadOnlyDictionary<string, string>? env = null,
-        IReadOnlyDictionary<string, CodexConfigValue>? configOverrides = null)
+        IReadOnlyDictionary<string, CodexConfigValue>? configOverrides = null,
+        ILogger? logger = null
+        )
     {
         _executablePath = executablePath ?? FindCodexPath();
         _envOverride = env;
         _configOverrides = configOverrides;
+        _logger = logger;
     }
 
     /// <summary>
@@ -105,6 +111,8 @@ internal sealed partial class CodexExec
         }
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        _logger?.LogDebug("Starting Codex CLI with args: {Args} and env: {Env}",
+            string.Join(' ', commandArgs), string.Join(", ", env.Select(kvp => $"{kvp.Key}={kvp.Value}")));
 
         var stderrBuilder = new StringBuilder();
         var stderrTcs = new TaskCompletionSource<string>();
@@ -133,6 +141,7 @@ internal sealed partial class CodexExec
         string? line;
         while ((line = await process.StandardOutput.ReadLineAsync(token).ConfigureAwait(false)) is not null)
         {
+            _logger?.LogDebug("Codex CLI output: {Line}", line);
             yield return line;
         }
 
@@ -143,6 +152,8 @@ internal sealed partial class CodexExec
         if (process.ExitCode != 0)
         {
             var stderr = stderrBuilder.ToString();
+            _logger?.LogError("Codex CLI exited with code {ExitCode}. Stderr: {Stderr}",
+                process.ExitCode, stderr);
             throw new InvalidOperationException(
                 $"Codex Exec exited with code {process.ExitCode}: {stderr}");
         }
@@ -243,10 +254,19 @@ internal sealed partial class CodexExec
             list.Add($"approval_policy=\"{ApprovalModeToString(args.ApprovalPolicy.Value)}\"");
         }
 
-        if (args.ThreadId is not null)
+        if (args.IsResume)
         {
-            list.Add("resume");
-            list.Add(args.ThreadId);
+            if (args.ThreadId is not null)
+            {
+                list.Add("resume");
+                list.Add(args.ThreadId);
+            }
+        }
+        else
+        {
+            // TODO
+            // codex not support set session UUID at launch
+            // https://github.com/openai/codex/issues/7801
         }
 
         if (args.Images?.Count > 0)

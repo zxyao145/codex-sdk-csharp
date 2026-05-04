@@ -11,7 +11,7 @@ internal static class ThreadEventExtensions
 
     public static AgentResponseUpdate? ToAgentResponseUpdate(this ThreadEvent threadEvent)
     {
-        return threadEvent switch
+        var update = threadEvent switch
         {
             ItemStartedEvent started => CreateItemUpdate("item.started", started.Item),
             ItemUpdatedEvent updated => CreateItemUpdate("item.updated", updated.Item),
@@ -21,6 +21,16 @@ internal static class ThreadEventExtensions
             ThreadErrorEvent threadError => CreateSystemTextUpdate($"Thread error: {threadError.Message}", "error"),
             _ => null,
         };
+
+        if (update is not null)
+        {
+            if (string.IsNullOrWhiteSpace(update.AuthorName))
+            {
+                update.AuthorName = AgentName;
+            }
+        }
+
+        return update;
     }
 
     private static AgentResponseUpdate CreateUsageUpdate(Usage usage)

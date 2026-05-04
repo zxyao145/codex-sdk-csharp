@@ -118,6 +118,7 @@ public sealed class Thread
     private readonly CodexOptions _options;
     private readonly ThreadOptions _threadOptions;
     private string? _id;
+    private bool _isResume;
 
     /// <summary>The ID of the thread. Populated after the first turn starts.</summary>
     public string? Id => _id;
@@ -127,12 +128,15 @@ public sealed class Thread
         CodexExec exec,
         CodexOptions options,
         ThreadOptions threadOptions,
-        string? id = null)
+        string? id = null,
+        bool isResume = false
+        )
     {
         _exec = exec;
         _options = options;
         _threadOptions = threadOptions;
         _id = id;
+        _isResume = isResume;
     }
 
     /// <summary>
@@ -244,6 +248,7 @@ public sealed class Thread
             BaseUrl = _options.BaseUrl,
             ApiKey = _options.ApiKey,
             ThreadId = _id,
+            IsResume = _isResume,
             Images = images,
             Model = opts.Model,
             SandboxMode = opts.SandboxMode,
