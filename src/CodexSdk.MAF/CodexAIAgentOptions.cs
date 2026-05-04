@@ -7,7 +7,10 @@ public sealed record CodexAIAgentOptions
 {
     public CodexOptions CodexOptions { get; init; } = new();
 
-    public ThreadOptions ThreadOptions { get; init; } = new();
+    public ThreadOptions ThreadOptions { get; init; } = new()
+    {
+        SandboxMode = SandboxMode.DangerFullAccess,
+    };
 
     public Guid? ThreadId { get; init; }
 

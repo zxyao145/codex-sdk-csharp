@@ -74,23 +74,52 @@ public sealed class CodexAIAgent : AIAgent
         var input = CombineUserText(mergedMessages);
         var thread = GetThread(safeSession);
         var notifiedThreadStarted = false;
+        var responseMessages = new List<ChatMessage>();
+        UsageDetails? usage = null;
+        ThreadError? turnFailure = null;
+        var failed = false;
 
         try
         {
-            var turn = await thread.RunAsync(input, cancellationToken: cancellationToken);
-            notifiedThreadStarted = await NotifyThreadStartedIfNeededAsync(
-                safeSession,
-                thread.Id,
-                notifiedThreadStarted,
-                cancellationToken);
-
-            var responseMessages = new List<ChatMessage>
+            await foreach (var threadEvent in thread.RunStreamedAsync(input, cancellationToken: cancellationToken))
             {
-                new(ChatRole.Assistant, turn.FinalResponse)
+                if (threadEvent is ThreadStartedEvent started)
                 {
-                    AuthorName = "codex"
+                    notifiedThreadStarted = await NotifyThreadStartedIfNeededAsync(
+                        safeSession,
+                        started.ThreadId,
+                        notifiedThreadStarted,
+                        cancellationToken);
                 }
-            };
+
+                switch (threadEvent)
+                {
+                    case TurnCompletedEvent turnCompleted:
+                        usage = CreateUsageDetails(turnCompleted.Usage);
+                        break;
+
+                    case TurnFailedEvent turnFailed:
+                        turnFailure = turnFailed.Error;
+                        failed = true;
+                        break;
+                }
+
+                var update = threadEvent.ToAgentResponseUpdate();
+                if (update?.ShouldSaveAsResponseMessage() == true)
+                {
+                    responseMessages.Add(update.ToChatMessage());
+                }
+
+                if (failed)
+                {
+                    break;
+                }
+            }
+
+            if (turnFailure is not null)
+            {
+                throw new InvalidOperationException(turnFailure.Message);
+            }
 
             await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
 
@@ -98,14 +127,7 @@ public sealed class CodexAIAgent : AIAgent
             {
                 ResponseId = Guid.NewGuid().ToString(),
                 Messages = responseMessages,
-                Usage = turn.Usage is null
-                    ? null
-                    : new UsageDetails
-                    {
-                        InputTokenCount = turn.Usage.InputTokens,
-                        CachedInputTokenCount = turn.Usage.CachedInputTokens,
-                        OutputTokenCount = turn.Usage.OutputTokens,
-                    },
+                Usage = usage,
             };
         }
         finally
@@ -149,7 +171,7 @@ public sealed class CodexAIAgent : AIAgent
                     continue;
                 }
 
-                if (update.Role == ChatRole.Assistant)
+                if (update.ShouldSaveAsResponseMessage())
                 {
                     responseMessages.Add(update.ToChatMessage());
                 }
@@ -167,6 +189,16 @@ public sealed class CodexAIAgent : AIAgent
         }
 
         await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
+    }
+
+    private static UsageDetails CreateUsageDetails(Usage usage)
+    {
+        return new UsageDetails
+        {
+            InputTokenCount = usage.InputTokens,
+            CachedInputTokenCount = usage.CachedInputTokens,
+            OutputTokenCount = usage.OutputTokens,
+        };
     }
 
     private async ValueTask<bool> NotifyThreadStartedIfNeededAsync(

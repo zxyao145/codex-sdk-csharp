@@ -6,6 +6,11 @@ namespace OpenAI.CodexSdk.MAF.Internal;
 
 internal static class AgentResponseUpdateExtensions
 {
+    public static bool ShouldSaveAsResponseMessage([NotNull] this AgentResponseUpdate update)
+    {
+        return update.Role == ChatRole.Assistant || update.Role == ChatRole.Tool;
+    }
+
     public static ChatMessage ToChatMessage([NotNull] this AgentResponseUpdate update)
     {
         return new ChatMessage
