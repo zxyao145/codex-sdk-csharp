@@ -73,33 +73,49 @@ public sealed class CodexAIAgent : AIAgent
         var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, messages, cancellationToken);
         var input = CombineUserText(mergedMessages);
         var thread = GetThread(safeSession);
+        var notifiedThreadStarted = false;
 
-        var turn = await thread.RunAsync(input, cancellationToken: cancellationToken);
-        safeSession.ThreadId = thread.Id;
-
-        var responseMessages = new List<ChatMessage>
+        try
         {
-            new(ChatRole.Assistant, turn.FinalResponse)
+            var turn = await thread.RunAsync(input, cancellationToken: cancellationToken);
+            notifiedThreadStarted = await NotifyThreadStartedIfNeededAsync(
+                safeSession,
+                thread.Id,
+                notifiedThreadStarted,
+                cancellationToken);
+
+            var responseMessages = new List<ChatMessage>
             {
-                AuthorName = "codex"
-            }
-        };
-
-        await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
-
-        return new AgentResponse
-        {
-            ResponseId = Guid.NewGuid().ToString(),
-            Messages = responseMessages,
-            Usage = turn.Usage is null
-                ? null
-                : new UsageDetails
+                new(ChatRole.Assistant, turn.FinalResponse)
                 {
-                    InputTokenCount = turn.Usage.InputTokens,
-                    CachedInputTokenCount = turn.Usage.CachedInputTokens,
-                    OutputTokenCount = turn.Usage.OutputTokens,
-                },
-        };
+                    AuthorName = "codex"
+                }
+            };
+
+            await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
+
+            return new AgentResponse
+            {
+                ResponseId = Guid.NewGuid().ToString(),
+                Messages = responseMessages,
+                Usage = turn.Usage is null
+                    ? null
+                    : new UsageDetails
+                    {
+                        InputTokenCount = turn.Usage.InputTokens,
+                        CachedInputTokenCount = turn.Usage.CachedInputTokens,
+                        OutputTokenCount = turn.Usage.OutputTokens,
+                    },
+            };
+        }
+        finally
+        {
+            await NotifyThreadStartedIfNeededAsync(
+                safeSession,
+                thread.Id,
+                notifiedThreadStarted,
+                CancellationToken.None);
+        }
     }
 
     protected override async IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
@@ -112,26 +128,64 @@ public sealed class CodexAIAgent : AIAgent
         var input = CombineUserText(mergedMessages);
         var thread = GetThread(safeSession);
         var responseMessages = new List<ChatMessage>();
+        var notifiedThreadStarted = false;
 
-        await foreach (var threadEvent in thread.RunStreamedAsync(input, cancellationToken: cancellationToken))
+        try
         {
-            var update = threadEvent.ToAgentResponseUpdate();
-            if (update is null)
+            await foreach (var threadEvent in thread.RunStreamedAsync(input, cancellationToken: cancellationToken))
             {
-                continue;
+                if (threadEvent is ThreadStartedEvent started)
+                {
+                    notifiedThreadStarted = await NotifyThreadStartedIfNeededAsync(
+                        safeSession,
+                        started.ThreadId,
+                        notifiedThreadStarted,
+                        cancellationToken);
+                }
+
+                var update = threadEvent.ToAgentResponseUpdate();
+                if (update is null)
+                {
+                    continue;
+                }
+
+                if (update.Role == ChatRole.Assistant)
+                {
+                    responseMessages.Add(update.ToChatMessage());
+                }
+
+                yield return update;
             }
-
-
-            if (update.Role == ChatRole.Assistant)
-            {
-                responseMessages.Add(update.ToChatMessage());
-            }
-
-            yield return update;
+        }
+        finally
+        {
+            await NotifyThreadStartedIfNeededAsync(
+                safeSession,
+                thread.Id,
+                notifiedThreadStarted,
+                CancellationToken.None);
         }
 
-        safeSession.ThreadId = thread.Id;
         await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
+    }
+
+    private async ValueTask<bool> NotifyThreadStartedIfNeededAsync(
+        CodexAgentSession session,
+        string? threadId,
+        bool alreadyNotified,
+        CancellationToken cancellationToken)
+    {
+        if (alreadyNotified || string.IsNullOrWhiteSpace(threadId))
+        {
+            return alreadyNotified;
+        }
+
+        await CodexThreadStartedNotifier.NotifyAsync(
+            _options,
+            session,
+            threadId,
+            cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     private Thread GetThread(CodexAgentSession session)

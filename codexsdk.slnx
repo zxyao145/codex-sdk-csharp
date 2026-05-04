@@ -10,4 +10,7 @@
     <Project Path="src/CodexSdk.MAF/CodexSdk.MAF.csproj" Id="f8886821-0191-4bec-87a9-c83aaf5f1496" />
     <Project Path="src/CodexSdk/CodexSdk.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodexSdk.MAF.Tests/CodexSdk.MAF.Tests.csproj" />
+  </Folder>
 </Solution>

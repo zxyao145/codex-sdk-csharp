@@ -13,5 +13,7 @@ public sealed record CodexAIAgentOptions
 
     public bool IsResume { get; init; }
 
+    public Func<string, CancellationToken, ValueTask>? OnThreadStartedAsync { get; init; }
+
     public ChatHistoryProvider? ChatHistoryProvider { get; init; }
 }
