@@ -86,6 +86,8 @@ internal sealed partial class CodexExec
 
         var commandArgs = BuildArgs(args);
         var env = BuildEnv(args);
+        
+        var workingDir = args.WorkingDirectory ?? Environment.CurrentDirectory;
 
         var fileName = CommandUtil.GetOptimallyQualifiedTargetFilePath(_executablePath);
         var psi = new ProcessStartInfo()
@@ -98,6 +100,7 @@ internal sealed partial class CodexExec
             StandardInputEncoding = Encoding.UTF8,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            WorkingDirectory = workingDir,
         };
 
         foreach (var arg in commandArgs)
@@ -209,7 +212,7 @@ internal sealed partial class CodexExec
             }
         }
 
-        if (args.SkipGitRepoCheck == true)
+        if (!args.SkipGitRepoCheck.HasValue || args.SkipGitRepoCheck.Value)
         {
             list.Add("--skip-git-repo-check");
         }

@@ -10,6 +10,7 @@ public sealed record CodexAIAgentOptions
     public ThreadOptions ThreadOptions { get; init; } = new()
     {
         SandboxMode = SandboxMode.DangerFullAccess,
+        SkipGitRepoCheck =  true,
     };
 
     public Guid? ThreadId { get; init; }

@@ -5,7 +5,7 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-		<PackageVersion>0.0.1-preview.1</PackageVersion>
+		<PackageVersion>0.0.1</PackageVersion>
 		<Title>OpenAI Codex SDK for .NET</Title>
 		<Authors>zxyao</Authors>
 		<Description>.NET SDK for OpenAI Codex</Description>
