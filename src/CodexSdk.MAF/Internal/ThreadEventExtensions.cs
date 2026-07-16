@@ -18,8 +18,8 @@ internal static class ThreadEventExtensions
             ItemUpdatedEvent updated => CreateItemUpdate("item.updated", updated.Item),
             ItemCompletedEvent completed => CreateItemUpdate("item.completed", completed.Item),
             TurnCompletedEvent turnCompleted => CreateUsageUpdate(turnCompleted.Usage),
-            TurnFailedEvent turnFailed => CreateSystemTextUpdate($"Turn failed: {turnFailed.Error.Message}", "turn.failed"),
-            ThreadErrorEvent threadError => CreateSystemTextUpdate($"Thread error: {threadError.Message}", "error"),
+            TurnFailedEvent turnFailed => CreateErrorUpdate(turnFailed.Error.Message, "turn.failed", true),
+            ThreadErrorEvent threadError => CreateErrorUpdate(threadError.Message, "error", true),
             _ => null,
         };
 
@@ -51,12 +51,13 @@ internal static class ThreadEventExtensions
                     InputTokenCount = usage.InputTokens,
                     CachedInputTokenCount = usage.CachedInputTokens,
                     OutputTokenCount = usage.OutputTokens,
+                    ReasoningTokenCount = usage.ReasoningOutputTokens,
                 })
             ],
         };
     }
 
-    private static AgentResponseUpdate CreateSystemTextUpdate(string text, string eventType)
+    private static AgentResponseUpdate CreateErrorUpdate(string message, string eventType, bool terminal)
     {
         return new AgentResponseUpdate
         {
@@ -66,13 +67,13 @@ internal static class ThreadEventExtensions
                 { "agentName", AgentName },
                 { "type", eventType },
             },
-            Contents = [new TextContent(text)],
+            Contents = [CreateErrorContent(message, terminal)],
         };
     }
 
     private static AgentResponseUpdate CreateItemUpdate(string eventType, ThreadItem item)
     {
-        var (role, content) = ConvertItem(eventType, item);
+        var (role, contents) = ConvertItem(eventType, item);
         return new AgentResponseUpdate
         {
             MessageId = item.Id,
@@ -83,38 +84,99 @@ internal static class ThreadEventExtensions
                 { "type", eventType },
                 { "itemType", item.GetType().Name },
             },
-            Contents = [content],
+            Contents = contents,
         };
     }
 
-    private static (ChatRole Role, AIContent Content) ConvertItem(string eventType, ThreadItem item)
+    private static (ChatRole Role, IList<AIContent> Contents) ConvertItem(string eventType, ThreadItem item)
     {
         return item switch
         {
-            AgentMessageItem message => (ChatRole.Assistant, new TextContent(message.Text)),
-            ReasoningItem reasoning => (ChatRole.System, new TextContent($"Reasoning: {reasoning.Text}")),
+            AgentMessageItem message => (ChatRole.Assistant, [new TextContent(message.Text)]),
+            ReasoningItem reasoning => (ChatRole.Assistant, [new TextReasoningContent(reasoning.Text)]),
             CommandExecutionItem command => ConvertCommandExecutionItem(eventType, command),
-            FileChangeItem fileChange => (ChatRole.System,
-                new TextContent($"File change status: {fileChange.Status}\nChanges: {JsonSerializer.Serialize(fileChange.Changes)}")),
-            McpToolCallItem mcp => (ChatRole.System,
-                new TextContent($"MCP {mcp.Server}/{mcp.Tool} status: {mcp.Status}\nArgs: {mcp.Arguments}\nResult: {JsonSerializer.Serialize(mcp.Result)}\nError: {JsonSerializer.Serialize(mcp.Error)}")),
-            WebSearchItem webSearch => (ChatRole.System, new TextContent($"Web search query: {webSearch.Query}")),
-            TodoListItem todo => (ChatRole.System, new TextContent($"Todo list: {JsonSerializer.Serialize(todo.Items)}")),
-            ErrorItem error => (ChatRole.System, new TextContent($"Error item: {error.Message}")),
-            _ => (ChatRole.System, new TextContent(JsonSerializer.Serialize(item))),
+            FileChangeItem fileChange => ConvertFileChangeItem(fileChange),
+            McpToolCallItem mcp => ConvertMcpToolCallItem(mcp),
+            WebSearchItem webSearch => (ChatRole.System, [new TextContent($"Web search query: {webSearch.Query}")]),
+            TodoListItem todo => (ChatRole.System, [new TextContent($"Todo list: {JsonSerializer.Serialize(todo.Items)}")]),
+            ErrorItem error => (ChatRole.System, [CreateErrorContent(error.Message)]),
+            _ => (ChatRole.System, [new TextContent(JsonSerializer.Serialize(item))]),
         };
     }
 
-    private static (ChatRole Role, AIContent Content) ConvertCommandExecutionItem(
+    private static (ChatRole Role, IList<AIContent> Contents) ConvertCommandExecutionItem(
         string eventType,
         CommandExecutionItem command)
     {
-        return eventType switch
+        (ChatRole Role, AIContent Content) converted = eventType switch
         {
             "item.started" => (ChatRole.Assistant, CreateCommandFunctionCall(command)),
             "item.completed" => (ChatRole.Tool, CreateCommandFunctionResult(command)),
             _ => (ChatRole.System, CreateCommandTextContent(command)),
         };
+        var contents = new List<AIContent> { converted.Content };
+        if (command.Status == CommandExecutionStatus.Failed)
+        {
+            contents.Add(CreateErrorContent(GetCommandErrorMessage(command)));
+        }
+
+        return (converted.Role, contents);
+    }
+
+    private static (ChatRole Role, IList<AIContent> Contents) ConvertFileChangeItem(FileChangeItem fileChange)
+    {
+        var changes = JsonSerializer.Serialize(fileChange.Changes);
+        var contents = new List<AIContent>
+        {
+            new TextContent($"File change status: {fileChange.Status}\nChanges: {changes}"),
+        };
+        if (fileChange.Status == PatchApplyStatus.Failed)
+        {
+            contents.Add(CreateErrorContent($"File change failed: {changes}"));
+        }
+
+        return (ChatRole.System, contents);
+    }
+
+    private static (ChatRole Role, IList<AIContent> Contents) ConvertMcpToolCallItem(McpToolCallItem mcp)
+    {
+        var contents = new List<AIContent>
+        {
+            new TextContent($"MCP {mcp.Server}/{mcp.Tool} status: {mcp.Status}\nArgs: {mcp.Arguments}\nResult: {JsonSerializer.Serialize(mcp.Result)}\nError: {JsonSerializer.Serialize(mcp.Error)}"),
+        };
+        if (mcp.Status == McpToolCallStatus.Failed || mcp.Error != null)
+        {
+            contents.Add(CreateErrorContent(
+                string.IsNullOrWhiteSpace(mcp.Error?.Message)
+                    ? $"MCP tool '{mcp.Server}/{mcp.Tool}' failed, unknown cause."
+                    : mcp.Error.Message));
+        }
+
+        return (ChatRole.System, contents);
+    }
+
+    private static ErrorContent CreateErrorContent(string message, bool terminal = false)
+    {
+        var content = new ErrorContent(message);
+        if (terminal)
+        {
+            content.AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                ["isFatalError"] = true,
+            };
+        }
+
+        return content;
+    }
+
+    private static string GetCommandErrorMessage(CommandExecutionItem command)
+    {
+        if (!string.IsNullOrWhiteSpace(command.AggregatedOutput))
+        {
+            return command.AggregatedOutput.Trim();
+        }
+
+        return $"Command '{command.Command}' failed with exit code {command.ExitCode?.ToString() ?? "unknown cause"}.";
     }
 
     private static FunctionCallContent CreateCommandFunctionCall(CommandExecutionItem command)

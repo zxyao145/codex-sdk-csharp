@@ -11,6 +11,11 @@ internal static class AgentResponseUpdateExtensions
         return update.Role == ChatRole.Assistant || update.Role == ChatRole.Tool;
     }
 
+    public static bool ShouldReturnAsResponseMessage([NotNull] this AgentResponseUpdate update)
+    {
+        return update.ShouldSaveAsResponseMessage() || update.Contents.Any(content => content is ErrorContent);
+    }
+
     public static ChatMessage ToChatMessage([NotNull] this AgentResponseUpdate update)
     {
         return new ChatMessage

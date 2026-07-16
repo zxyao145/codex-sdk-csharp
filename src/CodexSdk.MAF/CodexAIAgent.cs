@@ -33,7 +33,7 @@ public sealed class CodexAIAgent : AIAgent
 
     protected override ValueTask<AgentSession> CreateSessionCoreAsync(CancellationToken cancellationToken = default)
     {
-        var threadId = (_options.ThreadId ?? Guid.NewGuid()).ToString();
+        var threadId = _options.IsResume ? _options.ThreadId?.ToString() : null;
 
         return ValueTask.FromResult<AgentSession>(new CodexAgentSession(threadId));
     }
@@ -47,7 +47,8 @@ public sealed class CodexAIAgent : AIAgent
 
         if (session is not CodexAgentSession codexSession)
         {
-            throw new InvalidOperationException($"Expected {nameof(CodexAgentSession)} but got {session.GetType().Name}.");
+            throw new InvalidOperationException(
+                $"Expected {nameof(CodexAgentSession)} but got {session.GetType().Name}.");
         }
 
         return ValueTask.FromResult(JsonSerializer.SerializeToElement(codexSession, jsonSerializerOptions));
@@ -59,7 +60,8 @@ public sealed class CodexAIAgent : AIAgent
         CancellationToken cancellationToken = default)
     {
         var session = JsonSerializer.Deserialize<CodexAgentSession>(serializedState, jsonSerializerOptions)
-            ?? throw new ArgumentException("Unable to deserialize Codex session state.", nameof(serializedState));
+                      ?? throw new ArgumentException("Unable to deserialize Codex session state.",
+                          nameof(serializedState));
 
         return ValueTask.FromResult<AgentSession>(session);
     }
@@ -70,13 +72,14 @@ public sealed class CodexAIAgent : AIAgent
         AgentRunOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, messages, cancellationToken);
-        var input = CombineUserText(mergedMessages);
+        var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
+        var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
+        var input = CombineUserText(inputMessages);
         var thread = GetThread(safeSession);
         var notifiedThreadStarted = false;
         var responseMessages = new List<ChatMessage>();
+        var historyMessages = new List<ChatMessage>();
         UsageDetails? usage = null;
-        ThreadError? turnFailure = null;
         var failed = false;
 
         try
@@ -99,15 +102,23 @@ public sealed class CodexAIAgent : AIAgent
                         break;
 
                     case TurnFailedEvent turnFailed:
-                        turnFailure = turnFailed.Error;
+                        failed = true;
+                        break;
+
+                    case ThreadErrorEvent:
                         failed = true;
                         break;
                 }
 
                 var update = threadEvent.ToAgentResponseUpdate();
-                if (update?.ShouldSaveAsResponseMessage() == true)
+                if (update?.ShouldReturnAsResponseMessage() == true)
                 {
                     responseMessages.Add(update.ToChatMessage());
+                }
+
+                if (update?.ShouldSaveAsResponseMessage() == true)
+                {
+                    historyMessages.Add(update.ToChatMessage());
                 }
 
                 if (failed)
@@ -116,18 +127,11 @@ public sealed class CodexAIAgent : AIAgent
                 }
             }
 
-            if (turnFailure is not null)
-            {
-                throw new InvalidOperationException(turnFailure.Message);
-            }
-
-            await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
+            await SaveNewMessagesAsync(safeSession, mergedMessages, historyMessages, cancellationToken);
 
             return new AgentResponse
             {
-                ResponseId = Guid.NewGuid().ToString(),
-                Messages = responseMessages,
-                Usage = usage,
+                ResponseId = Guid.NewGuid().ToString(), Messages = responseMessages, Usage = usage,
             };
         }
         finally
@@ -146,8 +150,9 @@ public sealed class CodexAIAgent : AIAgent
         AgentRunOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, messages, cancellationToken);
-        var input = CombineUserText(mergedMessages);
+        var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
+        var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
+        var input = CombineUserText(inputMessages);
         var thread = GetThread(safeSession);
         var responseMessages = new List<ChatMessage>();
         var notifiedThreadStarted = false;
@@ -234,18 +239,35 @@ public sealed class CodexAIAgent : AIAgent
         return _codex.StartThread(_options.ThreadOptions, sessionId);
     }
 
-    private static string CombineUserText(IEnumerable<ChatMessage> messages)
+    private static Input CombineUserText(IEnumerable<ChatMessage> messages)
     {
-        return string.Join("\n\n", messages
+        var parts = new List<UserInput>();
+        var contents = messages
             .Where(static m => m.Role == ChatRole.User)
-            .Select(static m => m.Text)
-            .Where(static text => !string.IsNullOrWhiteSpace(text)));
+            .ToList();
+        foreach (var msg in contents)
+        {
+            if (string.IsNullOrWhiteSpace(msg.Text))
+            {
+                continue;
+            }
+            
+            UserInput userInput = new TextInput(msg.Text);
+            parts.Add(userInput);
+        }
+        var input = Input.FromParts(parts);
+        return input;
+        // string.Join("\n\n", messages
+        //     .Where(static m => m.Role == ChatRole.User)
+        //     .Select(static m => m.Text)
+        //     .Where(static text => !string.IsNullOrWhiteSpace(text)));
     }
 
-    private async ValueTask<(CodexAgentSession Session, IEnumerable<ChatMessage> Messages)> PrepareSessionAndMessagesAsync(
-        AgentSession? session,
-        IEnumerable<ChatMessage> inputMessages,
-        CancellationToken cancellationToken)
+    private async ValueTask<(CodexAgentSession Session, IEnumerable<ChatMessage> Messages)>
+        PrepareSessionAndMessagesAsync(
+            AgentSession? session,
+            IEnumerable<ChatMessage> inputMessages,
+            CancellationToken cancellationToken)
     {
         IEnumerable<ChatMessage> messages = inputMessages;
         if (ChatHistoryProvider is not null)
@@ -260,7 +282,8 @@ public sealed class CodexAIAgent : AIAgent
 
         if (session is not CodexAgentSession codexSession)
         {
-            throw new InvalidOperationException($"Expected {nameof(CodexAgentSession)} but got {session.GetType().Name}.");
+            throw new InvalidOperationException(
+                $"Expected {nameof(CodexAgentSession)} but got {session.GetType().Name}.");
         }
 
         return (codexSession, messages);

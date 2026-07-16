@@ -44,6 +44,9 @@ public sealed class Usage
     /// <summary>The number of output tokens used during the turn.</summary>
     [JsonPropertyName("output_tokens")]
     public int OutputTokens { get; init; }
+    
+    [JsonPropertyName("reasoning_output_tokens")]
+    public int ReasoningOutputTokens { get; init; }
 }
 
 /// <summary>Emitted when a turn is completed — typically right after the assistant's response.</summary>
