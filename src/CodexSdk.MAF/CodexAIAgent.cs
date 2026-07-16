@@ -75,8 +75,8 @@ public sealed class CodexAIAgent : AIAgent
         var thread = GetThread(safeSession);
         var notifiedThreadStarted = false;
         var responseMessages = new List<ChatMessage>();
+        var historyMessages = new List<ChatMessage>();
         UsageDetails? usage = null;
-        ThreadError? turnFailure = null;
         var failed = false;
 
         try
@@ -99,15 +99,23 @@ public sealed class CodexAIAgent : AIAgent
                         break;
 
                     case TurnFailedEvent turnFailed:
-                        turnFailure = turnFailed.Error;
+                        failed = true;
+                        break;
+
+                    case ThreadErrorEvent:
                         failed = true;
                         break;
                 }
 
                 var update = threadEvent.ToAgentResponseUpdate();
-                if (update?.ShouldSaveAsResponseMessage() == true)
+                if (update?.ShouldReturnAsResponseMessage() == true)
                 {
                     responseMessages.Add(update.ToChatMessage());
+                }
+
+                if (update?.ShouldSaveAsResponseMessage() == true)
+                {
+                    historyMessages.Add(update.ToChatMessage());
                 }
 
                 if (failed)
@@ -116,12 +124,7 @@ public sealed class CodexAIAgent : AIAgent
                 }
             }
 
-            if (turnFailure is not null)
-            {
-                throw new InvalidOperationException(turnFailure.Message);
-            }
-
-            await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
+            await SaveNewMessagesAsync(safeSession, mergedMessages, historyMessages, cancellationToken);
 
             return new AgentResponse
             {

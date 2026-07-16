@@ -107,4 +107,118 @@ public class ThreadEventExtensionsTests
         Assert.Equal(0, result["exit_code"]);
         Assert.Equal("completed", result["status"]);
     }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenTurnFailed_ReturnsTerminalErrorContent()
+    {
+        var threadEvent = new TurnFailedEvent
+        {
+            Error = new ThreadError { Message = "model unavailable" },
+        };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        var error = Assert.IsType<ErrorContent>(Assert.Single(update!.Contents));
+        Assert.Equal("model unavailable", error.Message);
+        Assert.True(Assert.IsType<bool>(error.AdditionalProperties!["isTerminalError"]));
+        Assert.True(update.ShouldReturnAsResponseMessage());
+        Assert.False(update.ShouldSaveAsResponseMessage());
+    }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenThreadErrors_ReturnsTerminalErrorContent()
+    {
+        var threadEvent = new ThreadErrorEvent { Message = "stream disconnected" };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        var error = Assert.IsType<ErrorContent>(Assert.Single(update!.Contents));
+        Assert.Equal("stream disconnected", error.Message);
+        Assert.True(Assert.IsType<bool>(error.AdditionalProperties!["isTerminalError"]));
+    }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenErrorItemCompletes_ReturnsRecoverableErrorContent()
+    {
+        var threadEvent = new ItemCompletedEvent
+        {
+            Item = new ErrorItem { Id = "error-1", Message = "temporary item failure" },
+        };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        var error = Assert.IsType<ErrorContent>(Assert.Single(update!.Contents));
+        Assert.Equal("temporary item failure", error.Message);
+        Assert.Null(error.AdditionalProperties);
+    }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenCommandExecutionFails_ReturnsFunctionResultAndError()
+    {
+        var threadEvent = new ItemCompletedEvent
+        {
+            Item = new CommandExecutionItem
+            {
+                Id = "command-1",
+                Command = "git status",
+                AggregatedOutput = "permission denied\n",
+                ExitCode = 1,
+                Status = CommandExecutionStatus.Failed,
+            },
+        };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        Assert.NotNull(update);
+        Assert.Equal(ChatRole.Tool, update.Role);
+        Assert.IsType<FunctionResultContent>(update.Contents[0]);
+        var error = Assert.IsType<ErrorContent>(update.Contents[1]);
+        Assert.Equal("permission denied", error.Message);
+        Assert.Null(error.AdditionalProperties);
+    }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenMcpToolCallFails_PreservesStatusAndAddsError()
+    {
+        var threadEvent = new ItemCompletedEvent
+        {
+            Item = new McpToolCallItem
+            {
+                Id = "mcp-1",
+                Server = "files",
+                Tool = "read",
+                Status = McpToolCallStatus.Failed,
+                Error = new McpToolCallError { Message = "access denied" },
+            },
+        };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        Assert.IsType<TextContent>(update!.Contents[0]);
+        var error = Assert.IsType<ErrorContent>(update.Contents[1]);
+        Assert.Equal("access denied", error.Message);
+    }
+
+    [Fact]
+    public void ToAgentResponseUpdate_WhenFileChangeFails_PreservesStatusAndAddsError()
+    {
+        var threadEvent = new ItemCompletedEvent
+        {
+            Item = new FileChangeItem
+            {
+                Id = "file-1",
+                Status = PatchApplyStatus.Failed,
+                Changes =
+                [
+                    new FileUpdateChange { Path = "README.md", Kind = PatchChangeKind.Update },
+                ],
+            },
+        };
+
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        Assert.IsType<TextContent>(update!.Contents[0]);
+        var error = Assert.IsType<ErrorContent>(update.Contents[1]);
+        Assert.Contains("README.md", error.Message, StringComparison.Ordinal);
+    }
 }
