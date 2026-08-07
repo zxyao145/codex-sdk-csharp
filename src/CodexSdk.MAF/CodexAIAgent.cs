@@ -31,6 +31,8 @@ public sealed class CodexAIAgent : AIAgent
 
     public ChatHistoryProvider? ChatHistoryProvider { get; }
 
+    public override string Name => "Codex";
+
     protected override ValueTask<AgentSession> CreateSessionCoreAsync(CancellationToken cancellationToken = default)
     {
         var threadId = _options.IsResume ? _options.ThreadId?.ToString() : null;
