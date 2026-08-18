@@ -63,6 +63,19 @@ public sealed class ThreadOptions
     /// <summary>Amount of reasoning effort applied by the model.</summary>
     public ModelReasoningEffort? ModelReasoningEffort { get; init; }
 
+    /// <summary>
+    /// Context window size in tokens. Values greater than zero are forwarded via
+    /// <c>--config model_context_window</c>; null, zero, and negative values are omitted.
+    /// </summary>
+    public long? ModelContextWindow { get; init; }
+
+    /// <summary>
+    /// Token usage threshold that triggers automatic context compaction. Values greater than zero
+    /// are forwarded via <c>--config model_auto_compact_token_limit</c>; null, zero, and negative
+    /// values are omitted.
+    /// </summary>
+    public long? ModelAutoCompactTokenLimit { get; init; }
+
     /// <summary>When <see langword="true"/>, enables network access inside the sandbox.</summary>
     public bool? NetworkAccessEnabled { get; init; }
 

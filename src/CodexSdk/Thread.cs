@@ -235,7 +235,7 @@ public sealed class Thread
     // Helpers
     // -------------------------------------------------------------------------
 
-    private CodexExecArgs BuildExecArgs(
+    internal CodexExecArgs BuildExecArgs(
         string prompt,
         IReadOnlyList<string> images,
         string? schemaPath,
@@ -256,6 +256,8 @@ public sealed class Thread
             SkipGitRepoCheck = opts.SkipGitRepoCheck,
             OutputSchemaFile = schemaPath,
             ModelReasoningEffort = opts.ModelReasoningEffort,
+            ModelContextWindow = opts.ModelContextWindow,
+            ModelAutoCompactTokenLimit = opts.ModelAutoCompactTokenLimit,
             NetworkAccessEnabled = opts.NetworkAccessEnabled,
             WebSearchMode = opts.WebSearchMode,
             WebSearchEnabled = opts.WebSearchEnabled,
