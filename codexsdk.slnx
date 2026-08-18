@@ -12,6 +12,7 @@
     <Project Path="src/CodexSdk/CodexSdk.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CodexSdk.Tests/CodexSdk.Tests.csproj" />
     <Project Path="tests/CodexSdk.MAF.Tests/CodexSdk.MAF.Tests.csproj" />
   </Folder>
 </Solution>

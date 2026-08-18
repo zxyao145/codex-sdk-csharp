@@ -33,6 +33,10 @@ internal sealed class CodexExecArgs
     public string? OutputSchemaFile { get; init; }
     // --config model_reasoning_effort
     public ModelReasoningEffort? ModelReasoningEffort { get; init; }
+    // --config model_context_window
+    public long? ModelContextWindow { get; init; }
+    // --config model_auto_compact_token_limit
+    public long? ModelAutoCompactTokenLimit { get; init; }
     // --config sandbox_workspace_write.network_access
     public bool? NetworkAccessEnabled { get; init; }
     // --config web_search
@@ -166,7 +170,7 @@ internal sealed partial class CodexExec
     // Argument building
     // -------------------------------------------------------------------------
 
-    private List<string> BuildArgs(CodexExecArgs args)
+    internal List<string> BuildArgs(CodexExecArgs args)
     {
         var list = new List<string> { "exec", "--experimental-json" };
 
@@ -227,6 +231,18 @@ internal sealed partial class CodexExec
         {
             list.Add("--config");
             list.Add($"model_reasoning_effort=\"{ModelReasoningEffortToString(args.ModelReasoningEffort.Value)}\"");
+        }
+
+        if (args.ModelContextWindow > 0)
+        {
+            list.Add("--config");
+            list.Add($"model_context_window={Int64ToToml(args.ModelContextWindow.Value)}");
+        }
+
+        if (args.ModelAutoCompactTokenLimit > 0)
+        {
+            list.Add("--config");
+            list.Add($"model_auto_compact_token_limit={Int64ToToml(args.ModelAutoCompactTokenLimit.Value)}");
         }
 
         if (args.NetworkAccessEnabled is not null)
@@ -424,6 +440,9 @@ internal sealed partial class CodexExec
     };
 
     private static string BoolToToml(bool value) => value ? "true" : "false";
+
+    private static string Int64ToToml(long value) =>
+        value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     // -------------------------------------------------------------------------
     // Binary resolution

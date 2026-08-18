@@ -22,7 +22,7 @@ A .NET SDK for interacting with OpenAI Codex through the Codex CLI, providing bu
 - Strongly typed event and item models for agent messages, command execution, file changes, MCP tool calls, web search, reasoning, and to-do lists
 - Structured output through JSON Schema with `TurnOptions.OutputSchema`
 - Local image input through `Input.FromParts`, `TextInput`, and `LocalImageInput`
-- Codex CLI configuration for models, sandboxing, approval policy, reasoning effort, web search, additional directories, base URL, API key, and environment variables
+- Codex CLI configuration for models, context windows, automatic compaction thresholds, sandboxing, approval policy, reasoning effort, web search, additional directories, base URL, API key, and environment variables
 - Microsoft Agent Framework integration through `CodexSdk.MAF`
 - .NET 10.0 target with nullable reference types and implicit usings enabled
 
@@ -312,17 +312,21 @@ Per-thread options forwarded to `codex exec`:
 ```csharp
 var thread = codex.StartThread(new ThreadOptions
 {
-    Model = "<model-name>",
+    Model = "gpt-5.6-sol",
     SandboxMode = SandboxMode.WorkspaceWrite,
     WorkingDirectory = "/path/to/project",
     SkipGitRepoCheck = true,
     ModelReasoningEffort = ModelReasoningEffort.High,
+    ModelContextWindow = 1_000_000,
+    ModelAutoCompactTokenLimit = 900_000,
     NetworkAccessEnabled = true,
     WebSearchMode = WebSearchMode.Live,
     ApprovalPolicy = ApprovalMode.OnRequest,
     AdditionalDirectories = ["/path/to/shared/context"],
 });
 ```
+
+`ModelContextWindow` and `ModelAutoCompactTokenLimit` are forwarded only when their values are greater than zero. Null, zero, and negative values are omitted. The Codex CLI may cap the effective context window based on the selected model's supported maximum.
 
 ### TurnOptions
 
