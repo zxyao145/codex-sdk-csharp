@@ -84,17 +84,17 @@ public sealed class FileUpdateChange
     public PatchChangeKind Kind { get; init; }
 }
 
-/// <summary>Whether a patch applied successfully.</summary>
-public enum PatchApplyStatus { Completed, Failed }
+/// <summary>The current status of a patch application.</summary>
+public enum PatchApplyStatus { InProgress, Completed, Failed }
 
-/// <summary>A set of file changes by the agent. Emitted once the patch succeeds or fails.</summary>
+/// <summary>A set of file changes reported while a patch is applied and when it finishes.</summary>
 public sealed class FileChangeItem : ThreadItem
 {
     /// <summary>Individual file changes that comprise the patch.</summary>
     [JsonPropertyName("changes")]
     public IReadOnlyList<FileUpdateChange> Changes { get; init; } = [];
 
-    /// <summary>Whether the patch ultimately succeeded or failed.</summary>
+    /// <summary>Current status of the patch application.</summary>
     [JsonPropertyName("status")]
     [JsonConverter(typeof(SnakeCaseEnumConverter<PatchApplyStatus>))]
     public PatchApplyStatus Status { get; init; }
