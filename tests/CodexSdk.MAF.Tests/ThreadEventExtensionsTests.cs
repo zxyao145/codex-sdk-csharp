@@ -79,6 +79,20 @@ public class ThreadEventExtensionsTests
     }
 
     [Fact]
+    public void ToAgentResponseUpdate_WhenTurnStarts_ReturnsVisibleSystemContent()
+    {
+        var update = new TurnStartedEvent().ToAgentResponseUpdate();
+
+        Assert.NotNull(update);
+        Assert.Equal(ChatRole.System, update.Role);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.Equal("turn.started", update.AdditionalProperties!["type"]);
+        Assert.Equal("turn.started", Assert.IsType<TextContent>(Assert.Single(update.Contents)).Text);
+        Assert.True(update.ShouldReturnAsResponseMessage());
+        Assert.False(update.ShouldSaveAsResponseMessage());
+    }
+
+    [Fact]
     public void ToAgentResponseUpdate_WhenCommandExecutionCompletedEvent_ReturnsFunctionResultContent()
     {
         const string commandText = "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'git branch --show-current'";
