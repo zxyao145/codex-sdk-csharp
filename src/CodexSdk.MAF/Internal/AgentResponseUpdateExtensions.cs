@@ -13,7 +13,10 @@ internal static class AgentResponseUpdateExtensions
 
     public static bool ShouldReturnAsResponseMessage([NotNull] this AgentResponseUpdate update)
     {
-        return update.ShouldSaveAsResponseMessage() || update.Contents.Any(content => content is ErrorContent);
+        return update.ShouldSaveAsResponseMessage()
+            || update.Contents.Any(content => content is ErrorContent)
+            || update.AdditionalProperties?.TryGetValue("type", out var type) == true
+                && string.Equals(type?.ToString(), "turn.started", StringComparison.Ordinal);
     }
 
     public static ChatMessage ToChatMessage([NotNull] this AgentResponseUpdate update)

@@ -14,6 +14,7 @@ internal static class ThreadEventExtensions
     {
         var update = threadEvent switch
         {
+            TurnStartedEvent => CreateLifecycleUpdate("turn.started"),
             ItemStartedEvent started => CreateItemUpdate("item.started", started.Item),
             ItemUpdatedEvent updated => CreateItemUpdate("item.updated", updated.Item),
             ItemCompletedEvent completed => CreateItemUpdate("item.completed", completed.Item),
@@ -32,6 +33,20 @@ internal static class ThreadEventExtensions
         }
 
         return update;
+    }
+
+    private static AgentResponseUpdate CreateLifecycleUpdate(string eventType)
+    {
+        return new AgentResponseUpdate
+        {
+            Role = ChatRole.System,
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                { "agentName", AgentName },
+                { "type", eventType },
+            },
+            Contents = [new TextContent(eventType)],
+        };
     }
 
     private static AgentResponseUpdate CreateUsageUpdate(Usage usage)

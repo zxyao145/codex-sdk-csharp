@@ -76,7 +76,7 @@ public sealed class CodexAIAgent : AIAgent
     {
         var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
         var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
-        var input = CombineUserText(inputMessages);
+        await using var inputLease = await CodexMafInputLease.CreateAsync(inputMessages, cancellationToken);
         var thread = GetThread(safeSession);
         var notifiedThreadStarted = false;
         var responseMessages = new List<ChatMessage>();
@@ -86,7 +86,7 @@ public sealed class CodexAIAgent : AIAgent
 
         try
         {
-            await foreach (var threadEvent in thread.RunStreamedAsync(input, cancellationToken: cancellationToken))
+            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, cancellationToken: cancellationToken))
             {
                 if (threadEvent is ThreadStartedEvent started)
                 {
@@ -133,7 +133,9 @@ public sealed class CodexAIAgent : AIAgent
 
             return new AgentResponse
             {
-                ResponseId = Guid.NewGuid().ToString(), Messages = responseMessages, Usage = usage,
+                ResponseId = Guid.NewGuid().ToString(),
+                Messages = responseMessages,
+                Usage = usage,
             };
         }
         finally
@@ -154,14 +156,14 @@ public sealed class CodexAIAgent : AIAgent
     {
         var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
         var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
-        var input = CombineUserText(inputMessages);
+        await using var inputLease = await CodexMafInputLease.CreateAsync(inputMessages, cancellationToken);
         var thread = GetThread(safeSession);
         var responseMessages = new List<ChatMessage>();
         var notifiedThreadStarted = false;
 
         try
         {
-            await foreach (var threadEvent in thread.RunStreamedAsync(input, cancellationToken: cancellationToken))
+            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, cancellationToken: cancellationToken))
             {
                 if (threadEvent is ThreadStartedEvent started)
                 {
@@ -239,30 +241,6 @@ public sealed class CodexAIAgent : AIAgent
         }
 
         return _codex.StartThread(_options.ThreadOptions, sessionId);
-    }
-
-    private static Input CombineUserText(IEnumerable<ChatMessage> messages)
-    {
-        var parts = new List<UserInput>();
-        var contents = messages
-            .Where(static m => m.Role == ChatRole.User)
-            .ToList();
-        foreach (var msg in contents)
-        {
-            if (string.IsNullOrWhiteSpace(msg.Text))
-            {
-                continue;
-            }
-            
-            UserInput userInput = new TextInput(msg.Text);
-            parts.Add(userInput);
-        }
-        var input = Input.FromParts(parts);
-        return input;
-        // string.Join("\n\n", messages
-        //     .Where(static m => m.Role == ChatRole.User)
-        //     .Select(static m => m.Text)
-        //     .Where(static text => !string.IsNullOrWhiteSpace(text)));
     }
 
     private async ValueTask<(CodexAgentSession Session, IEnumerable<ChatMessage> Messages)>

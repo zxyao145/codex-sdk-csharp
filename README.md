@@ -253,6 +253,7 @@ The `CodexSdk.MAF` package provides a `Microsoft.Agents.AI` bridge backed by Cod
 - Supports buffered `RunAsync` and streaming `RunStreamingAsync`
 - Converts Codex usage into `UsageDetails`
 - Uses `ChatHistoryProvider` when configured
+- Converts image `DataContent` inputs to temporary local image arguments for the duration of each turn
 - Maps assistant responses to `ChatMessage` and `AgentResponseUpdate`
 
 ### CodexAgentSession
