@@ -100,7 +100,7 @@ public sealed class CodexAIAgent : AIAgent
                 switch (threadEvent)
                 {
                     case TurnCompletedEvent turnCompleted:
-                        usage = CreateUsageDetails(turnCompleted.Usage);
+                        usage = turnCompleted.Usage.ToUsageDetails();
                         break;
 
                     case TurnFailedEvent turnFailed:
@@ -198,16 +198,6 @@ public sealed class CodexAIAgent : AIAgent
         }
 
         await SaveNewMessagesAsync(safeSession, mergedMessages, responseMessages, cancellationToken);
-    }
-
-    private static UsageDetails CreateUsageDetails(Usage usage)
-    {
-        return new UsageDetails
-        {
-            InputTokenCount = usage.InputTokens,
-            CachedInputTokenCount = usage.CachedInputTokens,
-            OutputTokenCount = usage.OutputTokens,
-        };
     }
 
     private async ValueTask<bool> NotifyThreadStartedIfNeededAsync(

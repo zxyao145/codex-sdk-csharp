@@ -93,6 +93,34 @@ public class ThreadEventExtensionsTests
     }
 
     [Fact]
+    public void ToAgentResponseUpdate_WhenTurnCompletes_MapsCompleteUsage()
+    {
+        // Arrange
+        var threadEvent = new TurnCompletedEvent
+        {
+            Usage = new Usage
+            {
+                InputTokens = 100,
+                CachedInputTokens = 60,
+                OutputTokens = 30,
+                ReasoningOutputTokens = 20,
+            },
+        };
+
+        // Act
+        var update = threadEvent.ToAgentResponseUpdate();
+
+        // Assert
+        Assert.NotNull(update);
+        var usage = Assert.IsType<UsageContent>(Assert.Single(update.Contents)).Details;
+        Assert.Equal(100L, usage.InputTokenCount);
+        Assert.Equal(60L, usage.CachedInputTokenCount);
+        Assert.Equal(30L, usage.OutputTokenCount);
+        Assert.Equal(20L, usage.ReasoningTokenCount);
+        Assert.Equal(130L, usage.TotalTokenCount);
+    }
+
+    [Fact]
     public void ToAgentResponseUpdate_WhenCommandExecutionCompletedEvent_ReturnsFunctionResultContent()
     {
         const string commandText = "\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'git branch --show-current'";

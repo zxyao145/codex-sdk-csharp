@@ -35,6 +35,18 @@ internal static class ThreadEventExtensions
         return update;
     }
 
+    public static UsageDetails ToUsageDetails(this Usage usage)
+    {
+        return new UsageDetails
+        {
+            InputTokenCount = usage.InputTokens,
+            CachedInputTokenCount = usage.CachedInputTokens,
+            OutputTokenCount = usage.OutputTokens,
+            ReasoningTokenCount = usage.ReasoningOutputTokens,
+            TotalTokenCount = (long)usage.InputTokens + usage.OutputTokens,
+        };
+    }
+
     private static AgentResponseUpdate CreateLifecycleUpdate(string eventType)
     {
         return new AgentResponseUpdate
@@ -61,13 +73,7 @@ internal static class ThreadEventExtensions
             },
             Contents =
             [
-                new UsageContent(new UsageDetails
-                {
-                    InputTokenCount = usage.InputTokens,
-                    CachedInputTokenCount = usage.CachedInputTokens,
-                    OutputTokenCount = usage.OutputTokens,
-                    ReasoningTokenCount = usage.ReasoningOutputTokens,
-                })
+                new UsageContent(usage.ToUsageDetails())
             ],
         };
     }
