@@ -24,7 +24,7 @@ internal static class AgentResponseUpdateExtensions
         return new ChatMessage
         {
             AdditionalProperties = update.AdditionalProperties,
-            AuthorName = update.AuthorName,
+            AuthorName = ThreadEventExtensions.AgentName,
             Contents = update.Contents,
             CreatedAt = update.CreatedAt,
             MessageId = update.MessageId,
