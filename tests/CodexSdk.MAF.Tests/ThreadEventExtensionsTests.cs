@@ -1,3 +1,4 @@
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI.CodexSdk;
 using OpenAI.CodexSdk.MAF.Internal;
@@ -71,6 +72,9 @@ public class ThreadEventExtensionsTests
         Assert.NotNull(update);
         Assert.Equal("item_3", update.MessageId);
         Assert.Equal(ChatRole.Assistant, update.Role);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.False(update.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal(string.Empty, update.AdditionalProperties["modelName"]);
         var content = Assert.IsType<FunctionCallContent>(Assert.Single(update.Contents));
         Assert.Equal("item_3", content.CallId);
         Assert.Equal("command_execution", content.Name);
@@ -81,15 +85,58 @@ public class ThreadEventExtensionsTests
     [Fact]
     public void ToAgentResponseUpdate_WhenTurnStarts_ReturnsVisibleSystemContent()
     {
-        var update = new TurnStartedEvent().ToAgentResponseUpdate();
+        var update = new TurnStartedEvent().ToAgentResponseUpdate("gpt-5.6-sol");
 
         Assert.NotNull(update);
         Assert.Equal(ChatRole.System, update.Role);
         Assert.Equal("codex", update.AuthorName);
+        Assert.False(update.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal("gpt-5.6-sol", update.AdditionalProperties["modelName"]);
         Assert.Equal("turn.started", update.AdditionalProperties!["type"]);
         Assert.Equal("turn.started", Assert.IsType<TextContent>(Assert.Single(update.Contents)).Text);
         Assert.True(update.ShouldReturnAsResponseMessage());
         Assert.False(update.ShouldSaveAsResponseMessage());
+    }
+
+    [Theory]
+    [InlineData(" gpt-5.6-sol ", "gpt-5.6-sol")]
+    [InlineData(null, "")]
+    [InlineData("   ", "")]
+    public void ToAgentResponseUpdate_WhenAssistantItem_MapsConfiguredModelName(
+        string? configuredModel,
+        string expectedModelName)
+    {
+        // Arrange
+        var threadEvent = new ItemCompletedEvent
+        {
+            Item = new AgentMessageItem { Id = "message-1", Text = "done" },
+        };
+
+        // Act
+        var update = threadEvent.ToAgentResponseUpdate(configuredModel);
+        var persisted = update!.ToChatMessage();
+
+        // Assert
+        Assert.Equal(ChatRole.Assistant, update.Role);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.False(update.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal(expectedModelName, update.AdditionalProperties["modelName"]);
+        Assert.Equal("codex", persisted.AuthorName);
+        Assert.False(persisted.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal(expectedModelName, persisted.AdditionalProperties!["modelName"]);
+    }
+
+    [Fact]
+    public void ToChatMessage_WhenUpdateAuthorIsMissing_UsesAgentName()
+    {
+        // Arrange
+        var update = new AgentResponseUpdate(ChatRole.Assistant, "done");
+
+        // Act
+        var message = update.ToChatMessage();
+
+        // Assert
+        Assert.Equal("codex", message.AuthorName);
     }
 
     [Fact]
@@ -108,10 +155,13 @@ public class ThreadEventExtensionsTests
         };
 
         // Act
-        var update = threadEvent.ToAgentResponseUpdate();
+        var update = threadEvent.ToAgentResponseUpdate("gpt-5.6-sol");
 
         // Assert
         Assert.NotNull(update);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.False(update.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal("gpt-5.6-sol", update.AdditionalProperties["modelName"]);
         var usage = Assert.IsType<UsageContent>(Assert.Single(update.Contents)).Details;
         Assert.Equal(100L, usage.InputTokenCount);
         Assert.Equal(60L, usage.CachedInputTokenCount);
@@ -136,11 +186,14 @@ public class ThreadEventExtensionsTests
             },
         };
 
-        var update = threadEvent.ToAgentResponseUpdate();
+        var update = threadEvent.ToAgentResponseUpdate("gpt-5.6-sol");
 
         Assert.NotNull(update);
         Assert.Equal("item_3", update.MessageId);
         Assert.Equal(ChatRole.Tool, update.Role);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.False(update.AdditionalProperties!.ContainsKey("agentName"));
+        Assert.Equal("gpt-5.6-sol", update.AdditionalProperties["modelName"]);
         var content = Assert.IsType<FunctionResultContent>(Assert.Single(update.Contents));
         Assert.Equal("item_3", content.CallId);
         var result = Assert.IsType<Dictionary<string, object?>>(content.Result);

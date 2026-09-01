@@ -7,10 +7,13 @@ namespace OpenAI.CodexSdk.MAF.Internal;
 
 internal static class ThreadEventExtensions
 {
-    private const string AgentName = "codex";
+    internal const string AgentName = "codex";
+    private const string ModelNamePropertyName = "modelName";
     private const string CommandExecutionFunctionName = "command_execution";
 
-    public static AgentResponseUpdate? ToAgentResponseUpdate(this ThreadEvent threadEvent)
+    public static AgentResponseUpdate? ToAgentResponseUpdate(
+        this ThreadEvent threadEvent,
+        string? modelName = null)
     {
         var update = threadEvent switch
         {
@@ -26,14 +29,16 @@ internal static class ThreadEventExtensions
 
         if (update is not null)
         {
-            if (string.IsNullOrWhiteSpace(update.AuthorName))
-            {
-                update.AuthorName = AgentName;
-            }
+            update.AuthorName = AgentName;
+            update.AdditionalProperties ??= [];
+            update.AdditionalProperties[ModelNamePropertyName] = NormalizeModelName(modelName);
         }
 
         return update;
     }
+
+    private static string NormalizeModelName(string? modelName) =>
+        string.IsNullOrWhiteSpace(modelName) ? string.Empty : modelName.Trim();
 
     public static UsageDetails ToUsageDetails(this Usage usage)
     {
@@ -54,7 +59,6 @@ internal static class ThreadEventExtensions
             Role = ChatRole.System,
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                { "agentName", AgentName },
                 { "type", eventType },
             },
             Contents = [new TextContent(eventType)],
@@ -68,7 +72,6 @@ internal static class ThreadEventExtensions
             Role = ChatRole.System,
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                { "agentName", AgentName },
                 { "type", "turn.completed" },
             },
             Contents =
@@ -85,7 +88,6 @@ internal static class ThreadEventExtensions
             Role = ChatRole.System,
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                { "agentName", AgentName },
                 { "type", eventType },
             },
             Contents = [CreateErrorContent(message, terminal)],
@@ -101,7 +103,6 @@ internal static class ThreadEventExtensions
             Role = role,
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                { "agentName", AgentName },
                 { "type", eventType },
                 { "itemType", item.GetType().Name },
             },

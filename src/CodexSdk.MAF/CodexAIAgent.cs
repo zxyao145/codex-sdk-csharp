@@ -112,7 +112,7 @@ public sealed class CodexAIAgent : AIAgent
                         break;
                 }
 
-                var update = threadEvent.ToAgentResponseUpdate();
+                var update = threadEvent.ToAgentResponseUpdate(_options.ThreadOptions.Model);
                 if (update?.ShouldReturnAsResponseMessage() == true)
                 {
                     responseMessages.Add(update.ToChatMessage());
@@ -174,7 +174,7 @@ public sealed class CodexAIAgent : AIAgent
                         cancellationToken);
                 }
 
-                var update = threadEvent.ToAgentResponseUpdate();
+                var update = threadEvent.ToAgentResponseUpdate(_options.ThreadOptions.Model);
                 if (update is null)
                 {
                     continue;
