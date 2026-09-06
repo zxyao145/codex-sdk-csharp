@@ -77,7 +77,7 @@ public sealed class CodexAIAgent : AIAgent
         var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
         var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
         await using var inputLease = await CodexMafInputLease.CreateAsync(inputMessages, cancellationToken);
-        var thread = GetThread(safeSession);
+        var thread = GetThread(_codex, _options, safeSession);
         var notifiedThreadStarted = false;
         var responseMessages = new List<ChatMessage>();
         var historyMessages = new List<ChatMessage>();
@@ -157,7 +157,7 @@ public sealed class CodexAIAgent : AIAgent
         var inputMessages = messages as ChatMessage[] ?? messages.ToArray();
         var (safeSession, mergedMessages) = await PrepareSessionAndMessagesAsync(session, inputMessages, cancellationToken);
         await using var inputLease = await CodexMafInputLease.CreateAsync(inputMessages, cancellationToken);
-        var thread = GetThread(safeSession);
+        var thread = GetThread(_codex, _options, safeSession);
         var responseMessages = new List<ChatMessage>();
         var notifiedThreadStarted = false;
 
@@ -219,18 +219,16 @@ public sealed class CodexAIAgent : AIAgent
         return true;
     }
 
-    private Thread GetThread(CodexAgentSession session)
+    internal static Thread GetThread(Codex codex, CodexAIAgentOptions options, CodexAgentSession session)
     {
-        var sessionId = string.IsNullOrWhiteSpace(session.ThreadId)
-            ? Guid.NewGuid().ToString()
-            : session.ThreadId;
-
-        if (_options.IsResume)
+        // If options.IsResume is true,
+        // session.ThreadId will be set
+        if (!string.IsNullOrWhiteSpace(session.ThreadId))
         {
-            return _codex.ResumeThread(sessionId, _options.ThreadOptions);
+            return codex.ResumeThread(session.ThreadId, options.ThreadOptions);
         }
 
-        return _codex.StartThread(_options.ThreadOptions, sessionId);
+        return codex.StartThread(options.ThreadOptions);
     }
 
     private async ValueTask<(CodexAgentSession Session, IEnumerable<ChatMessage> Messages)>

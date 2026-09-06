@@ -19,4 +19,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CodexSdk.MAF\CodexSdk.MAF.csproj" />
   </ItemGroup>
+  <Import Project="../Support/FakeCodexCli.targets" />
 </Project>

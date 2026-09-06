@@ -174,6 +174,7 @@ public sealed class Thread
             if (parsed is ThreadStartedEvent started)
             {
                 _id = started.ThreadId;
+                _isResume = true;
             }
 
             yield return parsed;
