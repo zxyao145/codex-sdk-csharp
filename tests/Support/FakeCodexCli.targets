@@ -1,0 +1,12 @@
+<Project>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)../FakeCodexCli/FakeCodexCli.csproj" ReferenceOutputAssembly="false" />
+    <Compile Include="$(MSBuildThisFileDirectory)FakeCodexCli.cs" Link="Support/FakeCodexCli.cs" />
+  </ItemGroup>
+  <Target Name="CopyFakeCodexCli" AfterTargets="Build">
+    <ItemGroup>
+      <FakeCodexCliFiles Include="$(MSBuildThisFileDirectory)../FakeCodexCli/bin/$(Configuration)/$(TargetFramework)/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FakeCodexCliFiles)" DestinationFolder="$(OutDir)fake-codex" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
