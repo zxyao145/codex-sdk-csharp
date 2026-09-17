@@ -13,4 +13,15 @@ Console.WriteLine(JsonSerializer.Serialize(new
     type = "item.completed",
     item = new { id = "item_0", type = "agent_message", text = resumeIndex >= 0 ? "resumed" : "started" },
 }));
-Console.WriteLine("""{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}""");
+switch (Environment.GetEnvironmentVariable("CODEX_TEST_FAILURE"))
+{
+    case "turn":
+        Console.WriteLine("""{"type":"turn.failed","error":{"message":"model unavailable"}}""");
+        break;
+    case "thread":
+        Console.WriteLine("""{"type":"error","message":"stream disconnected"}""");
+        break;
+    default:
+        Console.WriteLine("""{"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}""");
+        break;
+}

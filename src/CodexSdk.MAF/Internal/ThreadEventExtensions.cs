@@ -37,6 +37,22 @@ internal static class ThreadEventExtensions
         return update;
     }
 
+    public static AgentResponseUpdate CreateResultUpdate(string finalResponse, string? modelName = null)
+    {
+        var update = new AgentResponseUpdate
+        {
+            Role = ChatRole.Assistant,
+            AdditionalProperties = new AdditionalPropertiesDictionary
+            {
+                { "type", "result" },
+            },
+            Contents = [new TextContent(finalResponse)],
+        };
+        update.AuthorName = AgentName;
+        update.AdditionalProperties[ModelNamePropertyName] = NormalizeModelName(modelName);
+        return update;
+    }
+
     private static string NormalizeModelName(string? modelName) =>
         string.IsNullOrWhiteSpace(modelName) ? string.Empty : modelName.Trim();
 
