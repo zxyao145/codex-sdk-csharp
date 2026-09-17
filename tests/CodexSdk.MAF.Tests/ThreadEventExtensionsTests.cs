@@ -140,6 +140,18 @@ public class ThreadEventExtensionsTests
     }
 
     [Fact]
+    public void CreateResultUpdate_ReturnsAssistantUpdateWithResultType()
+    {
+        var update = ThreadEventExtensions.CreateResultUpdate("final answer", " gpt-5.6-sol ");
+
+        Assert.Equal(ChatRole.Assistant, update.Role);
+        Assert.Equal("codex", update.AuthorName);
+        Assert.Equal("result", update.AdditionalProperties!["type"]);
+        Assert.Equal("gpt-5.6-sol", update.AdditionalProperties["modelName"]);
+        Assert.Equal("final answer", Assert.IsType<TextContent>(Assert.Single(update.Contents)).Text);
+    }
+
+    [Fact]
     public void ToAgentResponseUpdate_WhenTurnCompletes_MapsCompleteUsage()
     {
         // Arrange

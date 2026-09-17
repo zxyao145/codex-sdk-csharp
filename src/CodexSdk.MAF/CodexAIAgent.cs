@@ -82,6 +82,7 @@ public sealed class CodexAIAgent : AIAgent
         var responseMessages = new List<ChatMessage>();
         var historyMessages = new List<ChatMessage>();
         UsageDetails? usage = null;
+        string? finalResponse = null;
         var failed = false;
 
         try
@@ -99,16 +100,22 @@ public sealed class CodexAIAgent : AIAgent
 
                 switch (threadEvent)
                 {
+                    case ItemCompletedEvent { Item: AgentMessageItem completedMessage }:
+                        finalResponse = completedMessage.Text;
+                        break;
+
                     case TurnCompletedEvent turnCompleted:
                         usage = turnCompleted.Usage.ToUsageDetails();
                         break;
 
                     case TurnFailedEvent turnFailed:
                         failed = true;
+                        finalResponse = turnFailed.Error.Message;
                         break;
 
-                    case ThreadErrorEvent:
+                    case ThreadErrorEvent threadError:
                         failed = true;
+                        finalResponse = threadError.Message;
                         break;
                 }
 
@@ -127,6 +134,14 @@ public sealed class CodexAIAgent : AIAgent
                 {
                     break;
                 }
+            }
+
+            if (finalResponse is not null)
+            {
+                // On success this carries the last agent message; on failure the error message.
+                responseMessages.Add(
+                    ThreadEventExtensions.CreateResultUpdate(finalResponse, _options.ThreadOptions.Model)
+                        .ToChatMessage());
             }
 
             await SaveNewMessagesAsync(safeSession, mergedMessages, historyMessages, cancellationToken);
@@ -160,6 +175,7 @@ public sealed class CodexAIAgent : AIAgent
         var thread = GetThread(_codex, _options, safeSession);
         var responseMessages = new List<ChatMessage>();
         var notifiedThreadStarted = false;
+        string? finalResponse = null;
 
         try
         {
@@ -172,6 +188,26 @@ public sealed class CodexAIAgent : AIAgent
                         started.ThreadId,
                         notifiedThreadStarted,
                         cancellationToken);
+                }
+
+                if (threadEvent is ItemCompletedEvent { Item: AgentMessageItem completedMessage })
+                {
+                    finalResponse = completedMessage.Text;
+                }
+
+                var resultText = threadEvent switch
+                {
+                    // On success the result carries the last agent message; on failure the error message.
+                    TurnCompletedEvent => finalResponse,
+                    TurnFailedEvent turnFailed => turnFailed.Error.Message,
+                    ThreadErrorEvent threadError => threadError.Message,
+                    _ => null,
+                };
+                if (resultText is not null)
+                {
+                    // The result update is surfaced right before the terminal event's update;
+                    // it is intentionally not saved to chat history again.
+                    yield return ThreadEventExtensions.CreateResultUpdate(resultText, _options.ThreadOptions.Model);
                 }
 
                 var update = threadEvent.ToAgentResponseUpdate(_options.ThreadOptions.Model);
