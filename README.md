@@ -13,6 +13,7 @@ A .NET SDK for interacting with OpenAI Codex through the Codex CLI, providing bu
 
 [![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk?label=CodexSdk)](https://www.nuget.org/packages/CodexSdk/)
 [![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk.MAF?label=CodexSdk.MAF)](https://www.nuget.org/packages/CodexSdk.MAF/)
+[![CI/CD](https://github.com/zxyao145/codex-sdk-csharp/workflows/CI/badge.svg)](https://github.com/zxyao145/codex-sdk-csharp/actions)
 
 ## Features
 
