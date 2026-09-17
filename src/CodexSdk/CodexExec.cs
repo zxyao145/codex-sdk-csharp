@@ -97,14 +97,15 @@ internal sealed partial class CodexExec
         var psi = new ProcessStartInfo()
         {
             FileName = fileName,
+            WorkingDirectory = workingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            CreateNoWindow = true,
             StandardInputEncoding = Encoding.UTF8,
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
-            WorkingDirectory = workingDir,
         };
 
         foreach (var arg in commandArgs)
@@ -118,8 +119,9 @@ internal sealed partial class CodexExec
         }
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        _logger?.LogDebug("Starting Codex CLI with args: {Args} and env: {Env}",
-            string.Join(' ', commandArgs), string.Join(", ", env.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+        _logger?.LogDebug("Starting Codex CLI: {CliPath} {Args}, env: {Environment}",
+            _executablePath, string.Join(' ', commandArgs), 
+            string.Join(", ", env.Select(kvp => $"{kvp.Key}={kvp.Value}")));
 
         var stderrBuilder = new StringBuilder();
         var stderrTcs = new TaskCompletionSource<string>();
