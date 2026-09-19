@@ -13,6 +13,12 @@ public sealed record CodexAIAgentOptions
         SkipGitRepoCheck =  true,
     };
 
+    /// <summary>
+    /// Per-turn options forwarded to <see cref="Thread.RunStreamedAsync"/> on both the buffered and
+    /// streaming paths. Use <see cref="TurnOptions.OutputSchema"/> to require structured output.
+    /// </summary>
+    public TurnOptions? TurnOptions { get; init; }
+
     public Guid? ThreadId { get; init; }
 
     public bool IsResume { get; init; }
