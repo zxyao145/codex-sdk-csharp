@@ -87,7 +87,7 @@ public sealed class CodexAIAgent : AIAgent
 
         try
         {
-            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, cancellationToken: cancellationToken))
+            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, _options.TurnOptions, cancellationToken))
             {
                 if (threadEvent is ThreadStartedEvent started)
                 {
@@ -179,7 +179,7 @@ public sealed class CodexAIAgent : AIAgent
 
         try
         {
-            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, cancellationToken: cancellationToken))
+            await foreach (var threadEvent in thread.RunStreamedAsync(inputLease.Input, _options.TurnOptions, cancellationToken))
             {
                 if (threadEvent is ThreadStartedEvent started)
                 {
