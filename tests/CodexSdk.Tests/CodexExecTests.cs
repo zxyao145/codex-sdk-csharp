@@ -1,5 +1,6 @@
 using OpenAI.Codex;
 using OpenAI.CodexSdk;
+using System.Diagnostics;
 using Xunit;
 
 namespace CodexSdk.Tests;
@@ -100,6 +101,35 @@ public sealed class CodexExecTests
         Assert.Equal(
             ["model_auto_compact_token_limit=180000"],
             CollectConfigValues(commandArgs, "model_auto_compact_token_limit"));
+    }
+
+    [Fact]
+    public void ApplyEnvironment_WhenEnvOverrideProvided_DoesNotInheritProcessEnvironment()
+    {
+        var exec = new CodexExec(
+            executablePath: "codex",
+            env: new Dictionary<string, string> { ["FOO"] = "bar" });
+        var psi = new ProcessStartInfo();
+
+        exec.ApplyEnvironment(psi.Environment, new CodexExecArgs { Input = "test", ApiKey = "sk-test" });
+
+        Assert.Equal(
+            ["CODEX_API_KEY", "CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "FOO"],
+            psi.Environment.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal("bar", psi.Environment["FOO"]);
+        Assert.Equal("sk-test", psi.Environment["CODEX_API_KEY"]);
+    }
+
+    [Fact]
+    public void ApplyEnvironment_WhenNoEnvOverride_InheritsProcessEnvironment()
+    {
+        var exec = new CodexExec(executablePath: "codex");
+        var psi = new ProcessStartInfo();
+
+        exec.ApplyEnvironment(psi.Environment, new CodexExecArgs { Input = "test" });
+
+        Assert.Equal(Environment.GetEnvironmentVariable("PATH"), psi.Environment["PATH"]);
+        Assert.Equal("codex_sdk_cs", psi.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
     }
 
     private static IReadOnlyList<string> BuildArgs(

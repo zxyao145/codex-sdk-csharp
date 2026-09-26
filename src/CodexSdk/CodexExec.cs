@@ -59,6 +59,8 @@ internal sealed partial class CodexExec
     private const string CsharpSdkOriginator = "codex_sdk_cs";
 
     private readonly string _executablePath;
+    // Resolved once: on Windows this probes every PATH directory for .exe/.cmd/.bat.
+    private readonly string _resolvedExecutablePath;
     private readonly IReadOnlyDictionary<string, string>? _envOverride;
     private readonly IReadOnlyDictionary<string, CodexConfigValue>? _configOverrides;
     private readonly ILogger? _logger;
@@ -71,6 +73,7 @@ internal sealed partial class CodexExec
         )
     {
         _executablePath = executablePath ?? FindCodexPath();
+        _resolvedExecutablePath = CommandUtil.GetOptimallyQualifiedTargetFilePath(_executablePath);
         _envOverride = env;
         _configOverrides = configOverrides;
         _logger = logger;
@@ -89,14 +92,12 @@ internal sealed partial class CodexExec
         var token = linkedCts.Token;
 
         var commandArgs = BuildArgs(args);
-        var env = BuildEnv(args);
-        
+
         var workingDir = args.WorkingDirectory ?? Environment.CurrentDirectory;
 
-        var fileName = CommandUtil.GetOptimallyQualifiedTargetFilePath(_executablePath);
         var psi = new ProcessStartInfo()
         {
-            FileName = fileName,
+            FileName = _resolvedExecutablePath,
             WorkingDirectory = workingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -113,15 +114,15 @@ internal sealed partial class CodexExec
             psi.ArgumentList.Add(arg);
         }
 
-        foreach (var (k, v) in env)
-        {
-            psi.Environment[k] = v;
-        }
+        ApplyEnvironment(psi.Environment, args);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-        _logger?.LogDebug("Starting Codex CLI: {CliPath} {Args}, env: {Environment}",
-            _executablePath, string.Join(' ', commandArgs), 
-            string.Join(", ", env.Select(kvp => $"{kvp.Key}={kvp.Value}")));
+        // Only variable names are logged: values may hold secrets such as CODEX_API_KEY.
+        if (_logger?.IsEnabled(LogLevel.Debug) == true)
+        {
+            LogStartingCli(_logger, _executablePath, string.Join(' ', commandArgs),
+                string.Join(", ", psi.Environment.Keys));
+        }
 
         var stderrBuilder = new StringBuilder();
         var stderrTcs = new TaskCompletionSource<string>();
@@ -150,7 +151,8 @@ internal sealed partial class CodexExec
         string? line;
         while ((line = await process.StandardOutput.ReadLineAsync(token).ConfigureAwait(false)) is not null)
         {
-            _logger?.LogDebug("Codex CLI output: {Line}", line);
+            if (_logger is not null)
+                LogCliOutput(_logger, line);
             yield return line;
         }
 
@@ -161,12 +163,27 @@ internal sealed partial class CodexExec
         if (process.ExitCode != 0)
         {
             var stderr = stderrBuilder.ToString();
-            _logger?.LogError("Codex CLI exited with code {ExitCode}. Stderr: {Stderr}",
-                process.ExitCode, stderr);
+            if (_logger is not null)
+                LogCliExited(_logger, process.ExitCode, stderr);
             throw new InvalidOperationException(
                 $"Codex Exec exited with code {process.ExitCode}: {stderr}");
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Logging
+    // -------------------------------------------------------------------------
+
+    // Callers check IsEnabled first so the joined strings are only built when needed.
+    [LoggerMessage(Level = LogLevel.Debug, SkipEnabledCheck = true,
+        Message = "Starting Codex CLI: {CliPath} {Args}, env: {EnvironmentKeys}")]
+    private static partial void LogStartingCli(ILogger logger, string cliPath, string args, string environmentKeys);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Codex CLI output: {Line}")]
+    private static partial void LogCliOutput(ILogger logger, string line);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Codex CLI exited with code {ExitCode}. Stderr: {Stderr}")]
+    private static partial void LogCliExited(ILogger logger, int exitCode, string stderr);
 
     // -------------------------------------------------------------------------
     // Argument building
@@ -302,32 +319,23 @@ internal sealed partial class CodexExec
         return list;
     }
 
-    private Dictionary<string, string> BuildEnv(CodexExecArgs args)
+    internal void ApplyEnvironment(IDictionary<string, string?> environment, CodexExecArgs args)
     {
-        var env = new Dictionary<string, string>(StringComparer.Ordinal);
-
         if (_envOverride is not null)
         {
+            // ProcessStartInfo.Environment is pre-populated from the current process,
+            // so it must be cleared for the override to replace (not extend) it.
+            environment.Clear();
             foreach (var (k, v) in _envOverride)
-                env[k] = v;
-        }
-        else
-        {
-            foreach (System.Collections.DictionaryEntry entry in System.Environment.GetEnvironmentVariables())
-            {
-                if (entry.Key is string k && entry.Value is string v)
-                    env[k] = v;
-            }
+                environment[k] = v;
         }
 
-        env.TryAdd(InternalOriginatorEnv, CsharpSdkOriginator);
+        environment.TryAdd(InternalOriginatorEnv, CsharpSdkOriginator);
 
         if (args.ApiKey is not null)
         {
-            env["CODEX_API_KEY"] = args.ApiKey;
+            environment["CODEX_API_KEY"] = args.ApiKey;
         }
-
-        return env;
     }
 
     // -------------------------------------------------------------------------

@@ -18,7 +18,12 @@ internal sealed class FakeCodexCli : IDisposable
 
     public CodexOptions CreateOptions()
     {
-        var env = new Dictionary<string, string> { ["CODEX_TEST_ARGUMENTS_FILE"] = _argumentsFile };
+        // The fake CLI is a .NET apphost: pass the parent environment through so it can still
+        // locate the runtime (DOTNET_ROOT, PATH, SystemRoot, ...) now that Env replaces it.
+        var env = Environment.GetEnvironmentVariables()
+            .Cast<System.Collections.DictionaryEntry>()
+            .ToDictionary(entry => (string)entry.Key, entry => (string)entry.Value!);
+        env["CODEX_TEST_ARGUMENTS_FILE"] = _argumentsFile;
         if (_failure is not null)
         {
             env["CODEX_TEST_FAILURE"] = _failure;

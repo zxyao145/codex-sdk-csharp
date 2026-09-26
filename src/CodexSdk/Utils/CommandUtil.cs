@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace OpenAI.CodexSdk.Utils;
 
@@ -43,9 +42,9 @@ internal class CommandUtil
             // MIT License, .NET Foundation
 
             // Executable directory
-            if (!string.IsNullOrWhiteSpace(EnvironmentEx.ProcessPath))
+            if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
             {
-                var processDirPath = Path.GetDirectoryName(EnvironmentEx.ProcessPath);
+                var processDirPath = Path.GetDirectoryName(Environment.ProcessPath);
                 if (!string.IsNullOrWhiteSpace(processDirPath))
                     yield return processDirPath;
             }
@@ -71,14 +70,4 @@ internal class CommandUtil
     }
 
 
-}
-internal static class EnvironmentEx
-{
-    private static readonly Lazy<string?> ProcessPathLazy = new(() =>
-    {
-        using var process = Process.GetCurrentProcess();
-        return process.MainModule?.FileName;
-    });
-
-    public static string? ProcessPath => ProcessPathLazy.Value;
 }
