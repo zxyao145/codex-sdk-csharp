@@ -15,6 +15,12 @@ A .NET SDK for interacting with OpenAI Codex through the Codex CLI, providing bu
 [![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk.MAF?label=CodexSdk.MAF)](https://www.nuget.org/packages/CodexSdk.MAF/)
 [![CI/CD](https://github.com/zxyao145/codex-sdk-csharp/workflows/CI/badge.svg)](https://github.com/zxyao145/codex-sdk-csharp/actions)
 
+Package versions use the format x.y.z and may include a -preview suffix for prerelease builds.
+
+- x follows the target .NET version.
+- y is incremented when the library introduces breaking changes or updates its Microsoft Agent Framework dependency.
+- z is incremented for library patch releases.
+
 ## Features
 
 - Buffered turns via `Thread.RunAsync`
