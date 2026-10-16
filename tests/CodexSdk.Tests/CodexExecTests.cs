@@ -132,6 +132,63 @@ public sealed class CodexExecTests
         Assert.Equal("codex_sdk_cs", psi.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
     }
 
+    [Fact]
+    public void FindCli_InFallbackDirectory_ReturnsPath()
+    {
+        var root = Directory.CreateTempSubdirectory("codex-sdk-tests-");
+        try
+        {
+            var pathDir = root.CreateSubdirectory("path");
+            var codexPath = Path.Combine(root.CreateSubdirectory("fallback").FullName, "codex");
+            File.WriteAllText(codexPath, "");
+
+            var result = CodexExec.FindCli("codex", pathDir.FullName, [codexPath]);
+
+            Assert.Equal(codexPath, result);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DefaultFallbackLocations_IncludeHomebrewBin()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Homebrew install locations only apply to Unix.");
+
+        Assert.Contains("/opt/homebrew/bin/codex", CodexExec.DefaultFallbackLocations("codex"));
+    }
+
+    [Fact]
+    public void FindCli_NotFound_MessageMentionsOverrideNotNodeJs()
+    {
+        var root = Directory.CreateTempSubdirectory("codex-sdk-tests-");
+        try
+        {
+            var missingPath = Path.Combine(root.FullName, "codex");
+
+            var exception = Assert.Throws<Exception>(
+                () => CodexExec.FindCli("codex", root.FullName, [missingPath]));
+
+            Assert.Contains("CodexPathOverride is not set", exception.Message);
+            Assert.Contains(missingPath, exception.Message);
+            Assert.DoesNotContain("Node.js", exception.Message);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Constructor_WithCodexPathOverride_DoesNotSearchForCli()
+    {
+        var exception = Record.Exception(() => new CodexExec(executablePath: "/nonexistent/codex"));
+
+        Assert.Null(exception);
+    }
+
     private static IReadOnlyList<string> BuildArgs(
         ThreadOptions threadOptions,
         IReadOnlyDictionary<string, CodexConfigValue>? config = null)

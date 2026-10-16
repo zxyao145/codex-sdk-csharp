@@ -495,28 +495,20 @@ internal sealed partial class CodexExec
     }
 
 
-    private static string FindCli(string command)
+    private static string FindCli(string command) =>
+        FindCli(command, Environment.GetEnvironmentVariable("PATH") ?? "", DefaultFallbackLocations(command));
+
+    internal static string FindCli(string command, string pathEnv, IReadOnlyList<string> fallbackLocations)
     {
         // Try PATH first
-        var cli = Which(command);
+        var cli = Which(command, pathEnv);
         if (cli != null)
             return cli;
 
         // Try common installation locations
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var isWindows = OperatingSystem.IsWindows();
 
-        var locations = new[]
-        {
-            command,
-            Path.Combine(home, ".npm-global", "bin", command),
-            Path.Combine("/usr/local/bin", command),
-            Path.Combine(home, ".local", "bin", command),
-            Path.Combine(home, "node_modules", ".bin", command),
-            Path.Combine(home, ".yarn", "bin", command),
-        };
-
-        foreach (var path in locations)
+        foreach (var path in fallbackLocations)
         {
             if (File.Exists(path))
                 return path;
@@ -525,27 +517,33 @@ internal sealed partial class CodexExec
                 return path + ".exe";
         }
 
-        // Check if Node.js is installed
-        if (Which("node") == null)
-        {
-            throw new Exception(
-                "codex requires Node.js, which is not installed.\n\n" +
-                "Install Node.js from: https://nodejs.org/\n\n" +
-                "After installing Node.js, install codex:\n" +
-                "  npm install -g @openai/codex");
-        }
-
         // CLI not found
         throw new Exception(
-            "codex not found. Install with:\n" +
-            "  npm install -g @openai/codex\n\n" +
-            "If already installed locally, try:\n" +
-            "  export PATH=\"$HOME/node_modules/.bin:$PATH\"");
+            $"Codex CLI not found. CodexOptions.CodexPathOverride is not set, and \"{command}\" was not found " +
+            $"on PATH ({pathEnv}) or in: {string.Join(", ", fallbackLocations.Select(Path.GetFullPath))}.\n" +
+            "Set CodexOptions.CodexPathOverride to the codex executable, or add its directory to PATH.");
     }
 
-    private static string? Which(string command)
+    // Processes started outside a login shell (e.g. a macOS LaunchAgent) get a minimal PATH,
+    // so well-known install directories are probed explicitly.
+    internal static IReadOnlyList<string> DefaultFallbackLocations(string command)
     {
-        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? "";
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        return
+        [
+            command,
+            Path.Combine(home, ".npm-global", "bin", command),
+            Path.Combine("/usr/local/bin", command),
+            Path.Combine("/opt/homebrew/bin", command),
+            Path.Combine(home, ".local", "bin", command),
+            Path.Combine(home, "node_modules", ".bin", command),
+            Path.Combine(home, ".yarn", "bin", command),
+        ];
+    }
+
+    private static string? Which(string command, string pathEnv)
+    {
         var paths = pathEnv.Split(Path.PathSeparator);
         var isWindows = OperatingSystem.IsWindows();
 

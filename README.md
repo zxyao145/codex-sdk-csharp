@@ -432,13 +432,15 @@ dotnet run --project samples/samples.csproj
 
 ## Troubleshooting
 
-### "codex not found"
+### "Codex CLI not found"
 
 Install the Codex CLI globally:
 
 ```bash
 npm install -g @openai/codex
 ```
+
+When `CodexPathOverride` is not set, the SDK searches `PATH` and then common install locations, including `/usr/local/bin` and `/opt/homebrew/bin`. The error message lists the `PATH` value and every location it checked.
 
 If the CLI is installed in a custom location, pass the executable path:
 
@@ -449,12 +451,19 @@ var codex = new Codex(new CodexOptions
 });
 ```
 
-### Node.js Is Missing
+If the error says `CodexPathOverride is not set` although you configured it, the value did not reach the SDK. When the options are bound from JSON (for example, an agw `Extra` block), use a nested object; a dotted key such as `"codexOptions.codexPathOverride"` is silently ignored:
 
-Install Node.js from <https://nodejs.org/>, then install the Codex CLI:
+```json
+{ "codexOptions": { "codexPathOverride": "/opt/homebrew/bin/codex" } }
+```
+
+### "env: node: No such file or directory"
+
+The npm build of the Codex CLI is a Node.js script (`#!/usr/bin/env node`), so `node` must be on the `PATH` of the process that starts it. Processes launched outside a login shell, such as a macOS LaunchAgent, often have a minimal `PATH` without it. Either make `node` available on that `PATH`, or switch to the native build, which does not need Node.js:
 
 ```bash
-npm install -g @openai/codex
+npm uninstall -g @openai/codex
+brew install --cask codex
 ```
 
 ### Authentication Errors
