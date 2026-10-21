@@ -51,8 +51,8 @@ public abstract class CodexConfigValue
 public sealed class CodexOptions
 {
     /// <summary>
-    /// Override the path to the Codex CLI executable.
-    /// When null, the SDK resolves the bundled platform binary automatically.
+    /// 指定 Codex CLI 命令或路径；省略时，在执行期间搜索 PATH 和 Unix 登录 shell。
+    /// Override the Codex CLI command or path; when omitted, execution searches PATH and the Unix login shell.
     /// </summary>
     public string? CodexPathOverride { get; init; }
 

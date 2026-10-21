@@ -8,6 +8,37 @@ namespace CodexSdk.Tests;
 public sealed class CodexExecTests
 {
     [Fact]
+    public async Task RunAsync_MissingExplicitExecutable_ThrowsLookupError()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"), "codex");
+        var exec = new CodexExec(executablePath: path);
+        await using var lines = exec.RunAsync(
+            new CodexExecArgs { Input = "test" },
+            TestContext.Current.CancellationToken).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await lines.MoveNextAsync());
+
+        Assert.Contains(path, exception.Message);
+        Assert.Contains("CodexPathOverride", exception.Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_CanceledLookup_ThrowsOperationCanceledException()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, Guid.NewGuid().ToString("N"), "codex");
+        var exec = new CodexExec(executablePath: path);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        await cancellation.CancelAsync();
+        await using var lines = exec.RunAsync(
+            new CodexExecArgs { Input = "test" },
+            cancellation.Token).GetAsyncEnumerator(TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await lines.MoveNextAsync());
+    }
+
+    [Fact]
     public void BuildArgs_WhenContextLimitsArePositive_ForwardsConfigOverrides()
     {
         var commandArgs = BuildArgs(new ThreadOptions
@@ -130,55 +161,6 @@ public sealed class CodexExecTests
 
         Assert.Equal(Environment.GetEnvironmentVariable("PATH"), psi.Environment["PATH"]);
         Assert.Equal("codex_sdk_cs", psi.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
-    }
-
-    [Fact]
-    public void FindCli_InFallbackDirectory_ReturnsPath()
-    {
-        var root = Directory.CreateTempSubdirectory("codex-sdk-tests-");
-        try
-        {
-            var pathDir = root.CreateSubdirectory("path");
-            var codexPath = Path.Combine(root.CreateSubdirectory("fallback").FullName, "codex");
-            File.WriteAllText(codexPath, "");
-
-            var result = CodexExec.FindCli("codex", pathDir.FullName, [codexPath]);
-
-            Assert.Equal(codexPath, result);
-        }
-        finally
-        {
-            root.Delete(recursive: true);
-        }
-    }
-
-    [Fact]
-    public void DefaultFallbackLocations_IncludeHomebrewBin()
-    {
-        Assert.SkipWhen(OperatingSystem.IsWindows(), "Homebrew install locations only apply to Unix.");
-
-        Assert.Contains("/opt/homebrew/bin/codex", CodexExec.DefaultFallbackLocations("codex"));
-    }
-
-    [Fact]
-    public void FindCli_NotFound_MessageMentionsOverrideNotNodeJs()
-    {
-        var root = Directory.CreateTempSubdirectory("codex-sdk-tests-");
-        try
-        {
-            var missingPath = Path.Combine(root.FullName, "codex");
-
-            var exception = Assert.Throws<Exception>(
-                () => CodexExec.FindCli("codex", root.FullName, [missingPath]));
-
-            Assert.Contains("CodexPathOverride is not set", exception.Message);
-            Assert.Contains(missingPath, exception.Message);
-            Assert.DoesNotContain("Node.js", exception.Message);
-        }
-        finally
-        {
-            root.Delete(recursive: true);
-        }
     }
 
     [Fact]
