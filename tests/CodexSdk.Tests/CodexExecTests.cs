@@ -1,12 +1,16 @@
 using OpenAI.Codex;
 using OpenAI.CodexSdk;
-using System.Diagnostics;
 using Xunit;
 
 namespace CodexSdk.Tests;
 
-public sealed class CodexExecTests
+public sealed class CodexExecTests : IDisposable
 {
+    private readonly string _directory = Path.Combine(
+        AppContext.BaseDirectory, "process start tests", Guid.NewGuid().ToString("N"));
+
+    public CodexExecTests() => Directory.CreateDirectory(_directory);
+
     [Fact]
     public async Task RunAsync_MissingExplicitExecutable_ThrowsLookupError()
     {
@@ -135,14 +139,13 @@ public sealed class CodexExecTests
     }
 
     [Fact]
-    public void ApplyEnvironment_WhenEnvOverrideProvided_DoesNotInheritProcessEnvironment()
+    public async Task CreateProcessStartInfoAsync_EnvProvided_DoesNotInheritProcessEnvironment()
     {
         var exec = new CodexExec(
-            executablePath: "codex",
+            executablePath: Environment.ProcessPath!,
             env: new Dictionary<string, string> { ["FOO"] = "bar" });
-        var psi = new ProcessStartInfo();
-
-        exec.ApplyEnvironment(psi.Environment, new CodexExecArgs { Input = "test", ApiKey = "sk-test" });
+        var psi = await exec.CreateProcessStartInfoAsync(
+            new CodexExecArgs { Input = "test", ApiKey = "sk-test" }, TestContext.Current.CancellationToken);
 
         Assert.Equal(
             ["CODEX_API_KEY", "CODEX_INTERNAL_ORIGINATOR_OVERRIDE", "FOO"],
@@ -152,15 +155,79 @@ public sealed class CodexExecTests
     }
 
     [Fact]
-    public void ApplyEnvironment_WhenNoEnvOverride_InheritsProcessEnvironment()
+    public async Task CreateProcessStartInfoAsync_NoEnvOverride_InheritsProcessEnvironment()
     {
-        var exec = new CodexExec(executablePath: "codex");
-        var psi = new ProcessStartInfo();
-
-        exec.ApplyEnvironment(psi.Environment, new CodexExecArgs { Input = "test" });
+        var exec = new CodexExec(executablePath: Environment.ProcessPath!);
+        var psi = await exec.CreateProcessStartInfoAsync(
+            new CodexExecArgs { Input = "test" }, TestContext.Current.CancellationToken);
 
         Assert.Equal(Environment.GetEnvironmentVariable("PATH"), psi.Environment["PATH"]);
-        Assert.Equal("codex_sdk_cs", psi.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
+        Assert.Equal(
+            Environment.GetEnvironmentVariable("CODEX_INTERNAL_ORIGINATOR_OVERRIDE") ?? "codex_sdk_cs",
+            psi.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
+    }
+
+    [Fact]
+    public async Task CreateProcessStartInfoAsync_EnvProvided_UsesProvidedPath()
+    {
+        var command = $"codex-{Guid.NewGuid():N}";
+        var executable = Path.Combine(_directory, OperatingSystem.IsWindows() ? command + ".exe" : command);
+        File.Copy(Environment.ProcessPath!, executable);
+        var pathKey = OperatingSystem.IsWindows() ? "Path" : "PATH";
+        var environment = new Dictionary<string, string> { [pathKey] = _directory };
+        var exec = new CodexExec(executablePath: command, env: environment);
+
+        var start = await exec.CreateProcessStartInfoAsync(
+            new CodexExecArgs { Input = "" }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(executable, start.FileName, ignoreCase: OperatingSystem.IsWindows());
+        Assert.Equal(_directory, start.Environment[pathKey]);
+        Assert.Single(environment);
+    }
+
+    [Fact]
+    public async Task CreateProcessStartInfoAsync_EmptyEnvironment_ThrowsLookupError()
+    {
+        var exec = new CodexExec(env: new Dictionary<string, string>());
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            exec.CreateProcessStartInfoAsync(new CodexExecArgs { Input = "" }, TestContext.Current.CancellationToken));
+
+        Assert.Contains("was not found", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateProcessStartInfoAsync_SdkVariablesProvided_PreservesPrecedence()
+    {
+        var environment = new Dictionary<string, string>
+        {
+            ["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] = "caller",
+            ["CODEX_API_KEY"] = "environment-key",
+        };
+        var exec = new CodexExec(executablePath: Environment.ProcessPath!, env: environment);
+
+        var start = await exec.CreateProcessStartInfoAsync(
+            new CodexExecArgs { Input = "", ApiKey = "request-key" }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("caller", start.Environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"]);
+        Assert.Equal("request-key", start.Environment["CODEX_API_KEY"]);
+        Assert.Equal("environment-key", environment["CODEX_API_KEY"]);
+    }
+
+    [Fact]
+    public async Task CreateProcessStartInfoAsync_ConcurrentCalls_KeepEnvironmentSnapshotsIndependent()
+    {
+        var environment = new Dictionary<string, string> { ["FOO"] = "original" };
+        var exec = new CodexExec(executablePath: Environment.ProcessPath!, env: environment);
+        var args = new CodexExecArgs { Input = "" };
+
+        var results = await Task.WhenAll(
+            exec.CreateProcessStartInfoAsync(args, TestContext.Current.CancellationToken),
+            exec.CreateProcessStartInfoAsync(args, TestContext.Current.CancellationToken));
+        results[0].Environment["FOO"] = "changed";
+
+        Assert.Equal("original", results[1].Environment["FOO"]);
+        Assert.Equal("original", environment["FOO"]);
     }
 
     [Fact]
@@ -196,4 +263,6 @@ public sealed class CodexExecTests
 
         return values;
     }
+
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
 }

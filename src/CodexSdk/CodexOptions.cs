@@ -69,8 +69,12 @@ public sealed class CodexOptions
     public IReadOnlyDictionary<string, CodexConfigValue>? Config { get; init; }
 
     /// <summary>
-    /// Environment variables passed to the Codex CLI process.
-    /// When provided, the SDK will not inherit variables from the current process environment.
+    /// 用于命令查找和 Codex CLI 进程的完整环境；null 表示继承当前进程环境。
+    /// Complete environment for command lookup and the Codex CLI; null inherits the current process environment.
+    /// 提供该集合时，SDK 使用它替换宿主环境，并保持调用方集合原值。
+    /// A supplied collection replaces the host environment and remains unchanged by the SDK.
+    /// Unix login shell 查找命中时，子进程采用该 shell 的 PATH，相对目录转换为绝对路径。
+    /// When Unix login-shell discovery succeeds, the child uses its PATH with relative entries made absolute.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Env { get; init; }
 }

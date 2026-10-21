@@ -11,6 +11,12 @@ namespace OpenAI.CodexSdk.Utils;
 internal sealed record CommandInfo(string Command, string? Path, CommandSource? Source = null, string? Error = null)
 {
     /// <summary>
+    /// login shell 查找使用的绝对 PATH；null 表示保留输入环境的 PATH。
+    /// Absolute PATH used by login-shell discovery; null preserves the input environment's PATH.
+    /// </summary>
+    public string? SearchPath { get; init; }
+
+    /// <summary>
     /// 是否在本次搜索中找到可执行入口；不表示包管理器安装状态，也不保证程序能正常启动。
     /// Whether an executable entrypoint was found; this does not verify package installation or successful startup.
     /// </summary>

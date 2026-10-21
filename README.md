@@ -284,9 +284,11 @@ The `CodexSdk.MAF` package provides a `Microsoft.Agents.AI` bridge backed by Cod
 The SDK forwards environment variables to the Codex CLI process.
 
 - `CODEX_API_KEY` - API key used by the CLI. Set from `CodexOptions.ApiKey` when provided.
-- `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` - set by the SDK to identify C# SDK-originated CLI calls.
+- `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` - defaults to `codex_sdk_cs`; an existing value is preserved.
 
-When `CodexOptions.Env` is provided, the SDK uses that dictionary as the process environment. When it is not provided, the SDK inherits the current process environment.
+Each invocation copies `CodexOptions.Env` when provided, or inherits the current process environment otherwise. Command lookup and the CLI process use this environment. A supplied dictionary fully replaces the host environment and remains unchanged.
+
+On Unix, when lookup finds Codex through the login shell specified by this environment's `SHELL`, the CLI receives that shell's complete PATH. Relative entries are resolved against the shell's working directory. Other variables continue to come from the copied environment; SDK-provided API keys are applied after lookup.
 
 ### CodexOptions
 
@@ -364,11 +366,14 @@ dotnet build codexsdk.slnx --configuration Release
 
 ### Testing
 
-Tests are not currently present. When a test project is added, run it with:
+Run the CLI startup component tests from the repository root on macOS or Linux with Node.js installed:
 
 ```bash
-dotnet test <path-to-test-csproj>
+npm ci --prefix tests/fixtures/codex-cli --ignore-scripts --no-audit --no-fund
+dotnet test --project tests/CodexSdk.Tests --filter-class '*CodexCliStartupTests'
 ```
+
+These tests use the pinned npm Codex package and real processes to query `--version`, including a child test process with a restricted inherited PATH. They require no Codex credentials. See [the fixture instructions](tests/fixtures/codex-cli/README.md).
 
 ### Formatting
 
@@ -446,7 +451,7 @@ Install the Codex CLI globally:
 npm install -g @openai/codex
 ```
 
-Before each invocation, the SDK resolves `CodexPathOverride`, or `codex` when it is omitted. Command names are searched on the current process `PATH`; Windows uses `PATHEXT`, and Unix checks execute permission. After a Unix `PATH` miss, the SDK can read the `PATH` from a supported login shell named by `SHELL`, with a three-second timeout. Lookup honors cancellation. A lookup failure reports the requested command or path and any login-shell diagnostic.
+Before each invocation, the SDK resolves `CodexPathOverride`, or `codex` when it is omitted. Command names are searched using the invocation's environment snapshot; Windows uses `PATHEXT`, and Unix checks execute permission. After a Unix `PATH` miss, the SDK can read the `PATH` from a supported login shell named by that environment's `SHELL`, with a three-second timeout. A successful login-shell lookup also supplies the CLI process's PATH. Lookup honors cancellation. A lookup failure reports the requested command or path and any login-shell diagnostic.
 
 If the CLI is installed in a custom location, pass the executable path:
 
@@ -465,12 +470,9 @@ When binding `CodexOptions` from JSON through a host integration (for example, a
 
 ### "env: node: No such file or directory"
 
-The npm build of the Codex CLI is a Node.js script (`#!/usr/bin/env node`), so `node` must be on the `PATH` of the process that starts it. Processes launched outside a login shell, such as a macOS LaunchAgent, often have a minimal `PATH` without it. Either make `node` available on that `PATH`, or switch to the native build, which does not need Node.js:
+The npm build of the Codex CLI is a Node.js script (`#!/usr/bin/env node`), so its process PATH must contain Node.js. When the SDK discovers Codex through a login shell, it passes that shell's PATH to the CLI. The shell configuration must make both Codex and Node.js available, including installations in separate directories.
 
-```bash
-npm uninstall -g @openai/codex
-brew install --cask codex
-```
+An explicit `CodexPathOverride` selects the executable directly. Its interpreter dependencies use the supplied or inherited environment, so that environment's PATH must include Node.js.
 
 ### Authentication Errors
 
