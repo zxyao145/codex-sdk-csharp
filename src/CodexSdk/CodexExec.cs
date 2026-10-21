@@ -2,7 +2,6 @@ using Microsoft.Extensions.Logging;
 using OpenAI.CodexSdk;
 using OpenAI.CodexSdk.Utils;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -59,8 +58,6 @@ internal sealed partial class CodexExec
     private const string CsharpSdkOriginator = "codex_sdk_cs";
 
     private readonly string _executablePath;
-    // Resolved once: on Windows this probes every PATH directory for .exe/.cmd/.bat.
-    private readonly string _resolvedExecutablePath;
     private readonly IReadOnlyDictionary<string, string>? _envOverride;
     private readonly IReadOnlyDictionary<string, CodexConfigValue>? _configOverrides;
     private readonly ILogger? _logger;
@@ -72,8 +69,7 @@ internal sealed partial class CodexExec
         ILogger? logger = null
         )
     {
-        _executablePath = executablePath ?? FindCodexPath();
-        _resolvedExecutablePath = CommandUtil.GetOptimallyQualifiedTargetFilePath(_executablePath);
+        _executablePath = string.IsNullOrWhiteSpace(executablePath) ? "codex" : executablePath;
         _envOverride = env;
         _configOverrides = configOverrides;
         _logger = logger;
@@ -91,13 +87,23 @@ internal sealed partial class CodexExec
             args.CancellationToken, cancellationToken);
         var token = linkedCts.Token;
 
+        var command = await CommandUtil.FindAsync(
+            _executablePath, cancellationToken: token).ConfigureAwait(false);
+        if (command.Path is not { } executablePath)
+        {
+            throw new InvalidOperationException(
+                $"Codex CLI '{_executablePath}' was not found. " +
+                "Install @openai/codex or set CodexOptions.CodexPathOverride." +
+                (command.Error is null ? "" : $" {command.Error}"));
+        }
+
         var commandArgs = BuildArgs(args);
 
         var workingDir = args.WorkingDirectory ?? Environment.CurrentDirectory;
 
         var psi = new ProcessStartInfo()
         {
-            FileName = _resolvedExecutablePath,
+            FileName = executablePath,
             WorkingDirectory = workingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -120,7 +126,7 @@ internal sealed partial class CodexExec
         // Only variable names are logged: values may hold secrets such as CODEX_API_KEY.
         if (_logger?.IsEnabled(LogLevel.Debug) == true)
         {
-            LogStartingCli(_logger, _executablePath, string.Join(' ', commandArgs),
+            LogStartingCli(_logger, executablePath, string.Join(' ', commandArgs),
                 string.Join(", ", psi.Environment.Keys));
         }
 
@@ -453,131 +459,4 @@ internal sealed partial class CodexExec
 
     private static string Int64ToToml(long value) =>
         value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-    // -------------------------------------------------------------------------
-    // Binary resolution
-    // -------------------------------------------------------------------------
-
-    private static string FindCodexPath()
-    {
-        var targetTriple = GetTargetTriple();
-        var binaryName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "codex.exe" : "codex";
-
-        //// Walk well-known roots looking for the vendor/<triple>/codex/<binary> layout
-        //// that matches the @openai/codex npm optional-dependency packages.
-        //var assemblyDir = Path.GetDirectoryName(typeof(CodexExec).Assembly.Location)
-        //    ?? AppContext.BaseDirectory;
-
-        //var searchRoots = new[]
-        //{
-        //    assemblyDir,
-        //    AppContext.BaseDirectory,
-        //    Directory.GetCurrentDirectory(),
-        //};
-
-        //foreach (var root in searchRoots)
-        //{
-        //    var candidate = Path.Combine(root, "vendor", targetTriple, "codex", binaryName);
-        //    if (File.Exists(candidate))
-        //        return candidate;
-        //}
-
-        var cli = FindCli("codex");
-        if (!string.IsNullOrWhiteSpace(cli))
-        {
-            return cli;
-        }
-
-        throw new InvalidOperationException(
-            $"Unable to locate the Codex CLI binary for {targetTriple}. " +
-            "Set CodexOptions.CodexPathOverride or place the binary at " +
-            $"vendor/{targetTriple}/codex/{binaryName} relative to the application.");
-    }
-
-
-    private static string FindCli(string command) =>
-        FindCli(command, Environment.GetEnvironmentVariable("PATH") ?? "", DefaultFallbackLocations(command));
-
-    internal static string FindCli(string command, string pathEnv, IReadOnlyList<string> fallbackLocations)
-    {
-        // Try PATH first
-        var cli = Which(command, pathEnv);
-        if (cli != null)
-            return cli;
-
-        // Try common installation locations
-        var isWindows = OperatingSystem.IsWindows();
-
-        foreach (var path in fallbackLocations)
-        {
-            if (File.Exists(path))
-                return path;
-
-            if (isWindows && File.Exists(path + ".exe"))
-                return path + ".exe";
-        }
-
-        // CLI not found
-        throw new Exception(
-            $"Codex CLI not found. CodexOptions.CodexPathOverride is not set, and \"{command}\" was not found " +
-            $"on PATH ({pathEnv}) or in: {string.Join(", ", fallbackLocations.Select(Path.GetFullPath))}.\n" +
-            "Set CodexOptions.CodexPathOverride to the codex executable, or add its directory to PATH.");
-    }
-
-    // Processes started outside a login shell (e.g. a macOS LaunchAgent) get a minimal PATH,
-    // so well-known install directories are probed explicitly.
-    internal static IReadOnlyList<string> DefaultFallbackLocations(string command)
-    {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        return
-        [
-            command,
-            Path.Combine(home, ".npm-global", "bin", command),
-            Path.Combine("/usr/local/bin", command),
-            Path.Combine("/opt/homebrew/bin", command),
-            Path.Combine(home, ".local", "bin", command),
-            Path.Combine(home, "node_modules", ".bin", command),
-            Path.Combine(home, ".yarn", "bin", command),
-        ];
-    }
-
-    private static string? Which(string command, string pathEnv)
-    {
-        var paths = pathEnv.Split(Path.PathSeparator);
-        var isWindows = OperatingSystem.IsWindows();
-
-        foreach (var path in paths)
-        {
-            var fullPath = Path.Combine(path, command);
-            if (File.Exists(fullPath))
-                return fullPath;
-
-            if (isWindows)
-            {
-                var fullExe = fullPath + ".exe";
-                if (File.Exists(fullExe))
-                    return fullExe;
-            }
-        }
-        return null;
-    }
-
-
-    private static string GetTargetTriple()
-    {
-        var isArm64 = RuntimeInformation.ProcessArchitecture == Architecture.Arm64;
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return isArm64 ? "aarch64-pc-windows-msvc" : "x86_64-pc-windows-msvc";
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            return isArm64 ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            return isArm64 ? "aarch64-unknown-linux-musl" : "x86_64-unknown-linux-musl";
-
-        throw new PlatformNotSupportedException(
-            $"Unsupported OS: {RuntimeInformation.OSDescription}");
-    }
 }

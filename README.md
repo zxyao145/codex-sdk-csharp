@@ -218,7 +218,7 @@ The SDK uses a thin process bridge over `codex exec --experimental-json`, then m
 
 **CodexExec** - Codex CLI subprocess bridge
 
-- Resolves the `codex` executable from `CodexOptions.CodexPathOverride` or `PATH`
+- Resolves `CodexOptions.CodexPathOverride` or `codex` before each invocation using `PATH`, Windows `PATHEXT`, and a Unix login shell after a `PATH` miss
 - Starts `codex exec --experimental-json`
 - Sends prompts through stdin
 - Yields stdout JSONL lines as an async stream
@@ -438,7 +438,7 @@ dotnet run --project samples/samples.csproj
 
 ## Troubleshooting
 
-### "Codex CLI not found"
+### Codex CLI discovery
 
 Install the Codex CLI globally:
 
@@ -446,7 +446,7 @@ Install the Codex CLI globally:
 npm install -g @openai/codex
 ```
 
-When `CodexPathOverride` is not set, the SDK searches `PATH` and then common install locations, including `/usr/local/bin` and `/opt/homebrew/bin`. The error message lists the `PATH` value and every location it checked.
+Before each invocation, the SDK resolves `CodexPathOverride`, or `codex` when it is omitted. Command names are searched on the current process `PATH`; Windows uses `PATHEXT`, and Unix checks execute permission. After a Unix `PATH` miss, the SDK can read the `PATH` from a supported login shell named by `SHELL`, with a three-second timeout. Lookup honors cancellation. A lookup failure reports the requested command or path and any login-shell diagnostic.
 
 If the CLI is installed in a custom location, pass the executable path:
 
@@ -457,7 +457,7 @@ var codex = new Codex(new CodexOptions
 });
 ```
 
-If the error says `CodexPathOverride is not set` although you configured it, the value did not reach the SDK. When the options are bound from JSON (for example, an agw `Extra` block), use a nested object; a dotted key such as `"codexOptions.codexPathOverride"` is silently ignored:
+When binding `CodexOptions` from JSON through a host integration (for example, an agw `Extra` block), provide `codexOptions` as a nested object:
 
 ```json
 { "codexOptions": { "codexPathOverride": "/opt/homebrew/bin/codex" } }
