@@ -76,19 +76,16 @@ internal sealed partial class CodexExec
     }
 
     /// <summary>
-    /// Runs the Codex CLI and yields each raw JSONL line from stdout.
-    /// Throws when the process exits with a non-zero exit code.
+    /// 准备 Codex 的程序入口、参数、工作目录和环境。
+    /// Prepares the Codex executable, arguments, working directory, and environment.
     /// </summary>
-    public async IAsyncEnumerable<string> RunAsync(
+    internal async Task<ProcessStartInfo> CreateProcessStartInfoAsync(
         CodexExecArgs args,
-        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
-            args.CancellationToken, cancellationToken);
-        var token = linkedCts.Token;
-
+        var environment = CommandUtil.SnapshotEnvironment(_envOverride);
         var command = await CommandUtil.FindAsync(
-            _executablePath, cancellationToken: token).ConfigureAwait(false);
+            _executablePath, new CommandLookupOptions { Environment = environment }, cancellationToken).ConfigureAwait(false);
         if (command.Path is not { } executablePath)
         {
             throw new InvalidOperationException(
@@ -96,6 +93,9 @@ internal sealed partial class CodexExec
                 "Install @openai/codex or set CodexOptions.CodexPathOverride." +
                 (command.Error is null ? "" : $" {command.Error}"));
         }
+
+        if (command.SearchPath is { } searchPath)
+            environment["PATH"] = searchPath;
 
         var commandArgs = BuildArgs(args);
 
@@ -120,13 +120,31 @@ internal sealed partial class CodexExec
             psi.ArgumentList.Add(arg);
         }
 
+        psi.Environment.Clear();
+        foreach (var (key, value) in environment)
+            psi.Environment[key] = value;
         ApplyEnvironment(psi.Environment, args);
+        return psi;
+    }
+
+    /// <summary>
+    /// Runs the Codex CLI and yields each raw JSONL line from stdout.
+    /// Throws when the process exits with a non-zero exit code.
+    /// </summary>
+    public async IAsyncEnumerable<string> RunAsync(
+        CodexExecArgs args,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+            args.CancellationToken, cancellationToken);
+        var token = linkedCts.Token;
+        var psi = await CreateProcessStartInfoAsync(args, token).ConfigureAwait(false);
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
         // Only variable names are logged: values may hold secrets such as CODEX_API_KEY.
         if (_logger?.IsEnabled(LogLevel.Debug) == true)
         {
-            LogStartingCli(_logger, executablePath, string.Join(' ', commandArgs),
+            LogStartingCli(_logger, psi.FileName, string.Join(' ', psi.ArgumentList),
                 string.Join(", ", psi.Environment.Keys));
         }
 
@@ -325,17 +343,8 @@ internal sealed partial class CodexExec
         return list;
     }
 
-    internal void ApplyEnvironment(IDictionary<string, string?> environment, CodexExecArgs args)
+    private static void ApplyEnvironment(IDictionary<string, string?> environment, CodexExecArgs args)
     {
-        if (_envOverride is not null)
-        {
-            // ProcessStartInfo.Environment is pre-populated from the current process,
-            // so it must be cleared for the override to replace (not extend) it.
-            environment.Clear();
-            foreach (var (k, v) in _envOverride)
-                environment[k] = v;
-        }
-
         environment.TryAdd(InternalOriginatorEnv, CsharpSdkOriginator);
 
         if (args.ApiKey is not null)

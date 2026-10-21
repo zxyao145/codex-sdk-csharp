@@ -78,10 +78,16 @@ internal static class CommandUtil
         var (shellPath, error) = await ReadLoginShellPathAsync(shell, environment, options.ShellTimeout,
             cancellationToken).ConfigureAwait(false);
         if (shellPath is null) return new(command, null, Error: error);
-        // shell 启动配置可能改变工作目录，其相对 PATH 项应按该目录解析。
-        // Startup configuration may change directories; resolve relative shell PATH entries against that directory.
-        path = FindOnPath(command, shellPath.Value, shellPath.WorkingDirectory, extensions, cancellationToken);
-        return new(command, path, path is null ? null : CommandSource.LoginShell);
+        // 相对 PATH 项按 shell 工作目录转为绝对路径，供查找和子进程共同使用。
+        // Resolve relative PATH entries against the shell directory for both lookup and child execution.
+        var searchPath = string.Join(Path.PathSeparator,
+            shellPath.Value.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+                .Select(entry => Path.GetFullPath(entry, shellPath.WorkingDirectory)));
+        path = FindOnPath(command, searchPath, shellPath.WorkingDirectory, extensions, cancellationToken);
+        return new(command, path, path is null ? null : CommandSource.LoginShell)
+        {
+            SearchPath = path is null ? null : searchPath
+        };
     }
 
     /// <summary>
@@ -142,7 +148,7 @@ internal static class CommandUtil
     /// 复制提供的或当前进程的环境，Windows 环境变量名不区分大小写。
     /// Copies the supplied or current process environment, using case-insensitive variable names on Windows.
     /// </summary>
-    private static Dictionary<string, string> SnapshotEnvironment(IReadOnlyDictionary<string, string>? environment)
+    internal static Dictionary<string, string> SnapshotEnvironment(IReadOnlyDictionary<string, string>? environment)
     {
         var comparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         return environment is not null

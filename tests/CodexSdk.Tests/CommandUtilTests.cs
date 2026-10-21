@@ -25,6 +25,7 @@ public sealed class CommandUtilTests : IDisposable
         Assert.Equal(executable, result.Path, ignoreCase: IsWindows);
         Assert.Equal(CommandSource.Path, result.Source);
         Assert.Null(result.Error);
+        Assert.Null(result.SearchPath);
     }
 
     [Fact]
@@ -65,6 +66,7 @@ public sealed class CommandUtilTests : IDisposable
 
         Assert.Equal(executable, result.Path, ignoreCase: IsWindows);
         Assert.Equal(CommandSource.ExplicitPath, result.Source);
+        Assert.Null(result.SearchPath);
     }
 
     [Fact]
@@ -159,6 +161,36 @@ public sealed class CommandUtilTests : IDisposable
         Assert.True(result.IsInstalled, result.Error);
         Assert.Equal(executable, result.Path);
         Assert.Equal(CommandSource.LoginShell, result.Source);
+        Assert.Null(result.Error);
+        Assert.Equal(Path.GetDirectoryName(executable), result.SearchPath);
+    }
+
+    [Fact(Skip = "此测试需要 /bin/zsh。This test requires /bin/zsh.", SkipUnless = nameof(HasZsh))]
+    public async Task FindAsync_LoginShellPath_PreservesDirectoryOrderAndResolvesRelativeEntries()
+    {
+        var executable = CreateExecutable(Path.Combine(_directory, "cli tools"));
+        await File.WriteAllTextAsync(Path.Combine(_directory, ".zshrc"),
+            "cd \"$HOME\"\nexport PATH=\"cli tools::./node tools:.:/usr/bin\"\n",
+            TestContext.Current.CancellationToken);
+
+        var result = await CommandUtil.FindAsync("codex", ShellOptions(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(executable, result.Path);
+        Assert.Equal(string.Join(Path.PathSeparator,
+            Path.Combine(_directory, "cli tools"), Path.Combine(_directory, "node tools"), _directory, "/usr/bin"),
+            result.SearchPath);
+    }
+
+    [Fact(Skip = "此测试需要 /bin/zsh。This test requires /bin/zsh.", SkipUnless = nameof(HasZsh))]
+    public async Task FindAsync_LoginShellCommandMissing_ReturnsNoSearchPath()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_directory, ".zshrc"),
+            "export PATH=\"$HOME/missing\"\n", TestContext.Current.CancellationToken);
+
+        var result = await CommandUtil.FindAsync("codex", ShellOptions(), TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsInstalled);
+        Assert.Null(result.SearchPath);
         Assert.Null(result.Error);
     }
 
