@@ -180,7 +180,7 @@ public sealed class CodexExecTests : IDisposable
         var start = await exec.CreateProcessStartInfoAsync(
             new CodexExecArgs { Input = "" }, TestContext.Current.CancellationToken);
 
-        Assert.Equal(executable, start.FileName);
+        Assert.Equal(executable, start.FileName, ignoreCase: OperatingSystem.IsWindows());
         Assert.Equal(_directory, start.Environment[pathKey]);
         Assert.Single(environment);
     }
