@@ -143,7 +143,10 @@ public sealed class TransportProcessTests : IDisposable
             TimeoutMs = 15000,
         }, cancellation.Token);
         await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
-        Assert.False(command.IsCompleted);
+        if (command.IsCompleted)
+        {
+            Assert.Fail($"Command completed before cancellation: {System.Text.Json.JsonSerializer.Serialize(await command)}");
+        }
         cancellation.Cancel();
 
         var completed = await Task.WhenAny(
