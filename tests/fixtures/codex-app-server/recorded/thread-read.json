@@ -1,0 +1,129 @@
+{
+  "readState": {
+    "firstUnread": {
+      "turnId": "fixture-turn-id",
+      "type": "turn"
+    },
+    "revision": "fixture-revision"
+  },
+  "thread": {
+    "agentNickname": null,
+    "agentRole": null,
+    "canAcceptDirectInput": null,
+    "cliVersion": "0.163.0",
+    "createdAt": 1792769314,
+    "cwd": "/fixture",
+    "daybreakEnabled": null,
+    "environments": null,
+    "ephemeral": false,
+    "extra": null,
+    "forkedFromId": null,
+    "gitInfo": null,
+    "historyMode": "paginated",
+    "id": "fixture-thread-id",
+    "model": "fixture-model",
+    "modelProvider": "openai",
+    "name": null,
+    "originator": "codex_sdk_cs",
+    "parentThreadId": null,
+    "path": "fixture/session.jsonl",
+    "preview": "Sanitized app-server thread snapshot.",
+    "projectId": null,
+    "reasoningEffort": "xhigh",
+    "recencyAt": 1792769315,
+    "section": null,
+    "sectionEnteredAt": null,
+    "sessionId": "fixture-session-id",
+    "source": "exec",
+    "status": {
+      "type": "notLoaded"
+    },
+    "threadSource": "user",
+    "turns": [
+      {
+        "completedAt": 1792769593,
+        "durationMs": 278014,
+        "error": null,
+        "id": "fixture-turn-id",
+        "items": [
+          {
+            "clientId": null,
+            "content": [
+              {
+                "text": "Fixture user message.",
+                "text_elements": [],
+                "type": "text"
+              }
+            ],
+            "type": "userMessage",
+            "id": "fixture-item-1"
+          },
+          {
+            "delivery": null,
+            "memoryCitation": null,
+            "phase": "commentary",
+            "questions": null,
+            "text": "Fixture assistant response.",
+            "type": "agentMessage",
+            "id": "fixture-item-2"
+          },
+          {
+            "aggregatedOutput": "Fixture command output.",
+            "command": "fixture command",
+            "commandActions": [
+              {
+                "name": "fixture action",
+                "path": "/fixture/action",
+                "type": "read",
+                "command": "fixture action"
+              }
+            ],
+            "cwd": "/fixture",
+            "durationMs": 0,
+            "exitCode": 0,
+            "pluginId": null,
+            "processId": "fixture-process",
+            "scriptPath": null,
+            "source": "unifiedExecStartup",
+            "status": "completed",
+            "type": "commandExecution",
+            "id": "fixture-item-3"
+          },
+          {
+            "content": [],
+            "summary": [
+              "Fixture reasoning summary."
+            ],
+            "type": "reasoning",
+            "id": "fixture-item-4"
+          },
+          {
+            "failure": null,
+            "result": "__FIXTURE_IMAGE_GENERATION_RESULT_BASE64__",
+            "revisedPrompt": "Fixture image generation prompt.",
+            "savedPath": "images/image-generation.png",
+            "status": "completed",
+            "transparentBackground": false,
+            "type": "imageGeneration",
+            "id": "fixture-item-5"
+          },
+          {
+            "path": "images/image-view-1.png",
+            "type": "imageView",
+            "id": "fixture-item-6"
+          },
+          {
+            "path": "images/image-view-2.png",
+            "type": "imageView",
+            "id": "fixture-item-7"
+          }
+        ],
+        "itemsView": "full",
+        "rootTurnId": "fixture-turn-id",
+        "startedAt": 1792769315,
+        "status": "completed"
+      }
+    ],
+    "updatedAt": 1792769593
+  }
+}

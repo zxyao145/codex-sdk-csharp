@@ -43,3 +43,5 @@ jobs:
       run: |
         dotnet nuget push "./releases/CodexSdk.${{ steps.version.outputs.VERSION }}.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
         dotnet nuget push "./releases/CodexSdk.MAF.${{ steps.version.outputs.VERSION }}.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push "./releases/CodexSdk.AppServer.${{ steps.version.outputs.VERSION }}.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        dotnet nuget push "./releases/CodexSdk.AppServer.MAF.${{ steps.version.outputs.VERSION }}.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

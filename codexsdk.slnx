@@ -5,17 +5,26 @@
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/samples.csproj" />
+    <Project Path="samples/AppServerSamples/AppServerSamples.csproj" />
   </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".gitignore" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
   </Folder>
-  <Folder Name="/src/">
+  <Folder Name="/src/" />
+  <Folder Name="/src/AppServerSdk/">
+    <Project Path="src/CodexSdk.AppServer.Generator/CodexSdk.AppServer.Generator.csproj" />
+    <Project Path="src/CodexSdk.AppServer.MAF/CodexSdk.AppServer.MAF.csproj" />
+    <Project Path="src/CodexSdk.AppServer/CodexSdk.AppServer.csproj" />
+  </Folder>
+  <Folder Name="/src/CliSdk/">
     <Project Path="src/CodexSdk.MAF/CodexSdk.MAF.csproj" Id="f8886821-0191-4bec-87a9-c83aaf5f1496" />
     <Project Path="src/CodexSdk/CodexSdk.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/CodexSdk.AppServer.Tests/CodexSdk.AppServer.Tests.csproj" />
+    <Project Path="tests/CodexSdk.AppServer.MAF.Tests/CodexSdk.AppServer.MAF.Tests.csproj" />
     <Project Path="tests/CodexSdk.Tests/CodexSdk.Tests.csproj" />
     <Project Path="tests/CodexSdk.MAF.Tests/CodexSdk.MAF.Tests.csproj" />
   </Folder>
