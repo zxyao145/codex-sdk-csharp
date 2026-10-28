@@ -9,14 +9,16 @@ using Xunit;
 
 namespace OpenAI.CodexSdk.AppServer.MAF.Tests;
 
-public sealed class CodexAppServerThreadLifecycleTests
+public sealed class CodexAppServerThreadLifecycleTests : IDisposable
 {
+    private readonly string _sqliteHome = Directory.CreateTempSubdirectory("codex app-server tests ").FullName;
+
     [Fact]
     public async Task RunAsync_InvalidInput_LeavesSessionUnbound()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() }, cancellationToken);
+            CreateClientOptions(), cancellationToken);
         var agent = new CodexAppServerAIAgent(client);
         var session = await agent.CreateSessionAsync(cancellationToken);
 
@@ -32,7 +34,7 @@ public sealed class CodexAppServerThreadLifecycleTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() }, cancellationToken);
+            CreateClientOptions(), cancellationToken);
         var agent = new CodexAppServerAIAgent(client, new()
         {
             ConfigureTurnStart = (_, _) => throw new InvalidDataException("Invalid turn configuration."),
@@ -51,7 +53,7 @@ public sealed class CodexAppServerThreadLifecycleTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() }, cancellationToken);
+            CreateClientOptions(), cancellationToken);
         var failure = new InvalidDataException("Application update persistence failed.");
         var callbackCount = 0;
         var agent = new CodexAppServerAIAgent(client, new()
@@ -82,7 +84,7 @@ public sealed class CodexAppServerThreadLifecycleTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() }, cancellationToken);
+            CreateClientOptions(), cancellationToken);
         ThreadResumeParams? configured = null;
         var boundId = Guid.NewGuid().ToString();
         var agent = new CodexAppServerAIAgent(client, new()
@@ -112,7 +114,7 @@ public sealed class CodexAppServerThreadLifecycleTests
     {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() }, cancellationToken);
+            CreateClientOptions(), cancellationToken);
         var agent = new CodexAppServerAIAgent(client, new()
         {
             ConfigureThreadResume = _ => AppServerJson.Deserialize<ThreadResumeParams>(configuration),
@@ -127,6 +129,15 @@ public sealed class CodexAppServerThreadLifecycleTests
 
         Assert.Contains("path or history", failure.Message, StringComparison.Ordinal);
     }
+
+    public void Dispose() => Directory.Delete(_sqliteHome, recursive: true);
+
+    private CodexAppServerClientOptions CreateClientOptions() => new()
+    {
+        ExecutablePath = FixtureExecutable(),
+        // Parallel app-server processes must not initialize the same SQLite database.
+        Arguments = ["--config", $"sqlite_home={JsonSerializer.Serialize(_sqliteHome)}"],
+    };
 
     private static string FixtureExecutable([CallerFilePath] string sourceFile = "")
     {

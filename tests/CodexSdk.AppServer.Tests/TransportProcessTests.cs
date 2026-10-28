@@ -10,13 +10,15 @@ using Xunit;
 
 namespace CodexSdk.AppServer.Tests;
 
-public sealed class TransportProcessTests
+public sealed class TransportProcessTests : IDisposable
 {
+    private readonly string _sqliteHome = Directory.CreateTempSubdirectory("codex app-server tests ").FullName;
+
     [Fact]
     public async Task StartAsync_RealCodexAppServer_ListsModelsThreadsAndReadsFile()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
 
         var modelsTask = client.ModelListAsync(new ModelListParams(), TestContext.Current.CancellationToken);
@@ -39,7 +41,7 @@ public sealed class TransportProcessTests
     public async Task StartAsync_WhenProcessExits_CompletesNotificationSubscriber()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
         await using var notifications = client.Subscribe(TestContext.Current.CancellationToken)
             .GetAsyncEnumerator(TestContext.Current.CancellationToken);
@@ -60,7 +62,8 @@ public sealed class TransportProcessTests
     [Fact]
     public async Task ConnectAsync_RealCodexAppServer_OwnsHandlerAndDisposesProcess()
     {
-        var startInfo = new ProcessStartInfo(FixtureExecutable())
+        var options = CreateClientOptions();
+        var startInfo = new ProcessStartInfo(options.ExecutablePath)
         {
             UseShellExecute = false,
             RedirectStandardInput = true,
@@ -71,6 +74,8 @@ public sealed class TransportProcessTests
         startInfo.ArgumentList.Add("app-server");
         startInfo.ArgumentList.Add("--listen");
         startInfo.ArgumentList.Add("stdio://");
+        foreach (var argument in options.Arguments)
+            startInfo.ArgumentList.Add(argument);
 
         using var process = new Process { StartInfo = startInfo };
         Assert.True(process.Start());
@@ -109,7 +114,7 @@ public sealed class TransportProcessTests
     public async Task StartAsync_UnknownMethod_PreservesRemoteError()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
 
         var exception = await Assert.ThrowsAsync<CodexAppServerException>(() =>
@@ -128,7 +133,7 @@ public sealed class TransportProcessTests
     public async Task StartAsync_CancelCommandExec_LeavesConnectionUsableForFileRead()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
 
         using var cancellation = new CancellationTokenSource();
@@ -157,7 +162,7 @@ public sealed class TransportProcessTests
     public async Task StartAsync_TypedThreadSubscriptions_PreserveOrderAndThreadIds()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
         var cancellationToken = TestContext.Current.CancellationToken;
         var firstSubscription = client.SubscribeThreadStarted(cancellationToken: cancellationToken);
@@ -185,7 +190,7 @@ public sealed class TransportProcessTests
     public async Task Subscribe_CanceledBeforeEnumeration_RemovesLiveSubscription()
     {
         await using var client = await CodexAppServerClient.StartAsync(
-            new CodexAppServerClientOptions { ExecutablePath = FixtureExecutable() },
+            CreateClientOptions(),
             TestContext.Current.CancellationToken);
         using var cancellation = new CancellationTokenSource();
         var subscription = client.Subscribe(cancellation.Token);
@@ -198,6 +203,15 @@ public sealed class TransportProcessTests
         await using var notifications = subscription.GetAsyncEnumerator(cancellation.Token);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => notifications.MoveNextAsync().AsTask());
     }
+
+    public void Dispose() => Directory.Delete(_sqliteHome, recursive: true);
+
+    private CodexAppServerClientOptions CreateClientOptions() => new()
+    {
+        ExecutablePath = FixtureExecutable(),
+        // Parallel app-server processes must not initialize the same SQLite database.
+        Arguments = ["--config", $"sqlite_home={System.Text.Json.JsonSerializer.Serialize(_sqliteHome)}"],
+    };
 
     private static string FixtureExecutable([CallerFilePath] string sourceFile = "")
     {
