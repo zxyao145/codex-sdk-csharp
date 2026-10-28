@@ -140,6 +140,8 @@ public sealed class TransportProcessTests : IDisposable
         var command = client.CommandExecAsync(new CommandExecParams
         {
             Command = ["node", "-e", "setTimeout(() => {}, 10000)"],
+            // Test cancellation independently of host sandbox support.
+            SandboxPolicy = new DangerFullAccessSandboxPolicy(),
             TimeoutMs = 15000,
         }, cancellation.Token);
         await Task.Delay(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
