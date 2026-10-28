@@ -13,4 +13,8 @@
     <ProjectReference Include="..\src\CodexSdk.MAF\CodexSdk.MAF.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="AppServerSamples/**" />
+  </ItemGroup>
+
 </Project>

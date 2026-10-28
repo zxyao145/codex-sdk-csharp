@@ -13,6 +13,8 @@ A .NET SDK for interacting with OpenAI Codex through the Codex CLI, providing bu
 
 [![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk?label=CodexSdk)](https://www.nuget.org/packages/CodexSdk/)
 [![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk.MAF?label=CodexSdk.MAF)](https://www.nuget.org/packages/CodexSdk.MAF/)
+[![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk.AppServer?label=CodexSdk.AppServer)](https://www.nuget.org/packages/CodexSdk.AppServer/)
+[![NuGet Version (with prereleases)](https://img.shields.io/nuget/vpre/CodexSdk.AppServer.MAF?label=CodexSdk.AppServer.MAF)](https://www.nuget.org/packages/CodexSdk.AppServer.MAF/)
 [![CI/CD](https://github.com/zxyao145/codex-sdk-csharp/workflows/CI/badge.svg)](https://github.com/zxyao145/codex-sdk-csharp/actions)
 
 Package versions use the format x.y.z and may include a -preview suffix for prerelease builds.
@@ -31,6 +33,8 @@ Package versions use the format x.y.z and may include a -preview suffix for prer
 - Local image input through `Input.FromParts`, `TextInput`, and `LocalImageInput`
 - Codex CLI configuration for models, context windows, automatic compaction thresholds, sandboxing, approval policy, reasoning effort, web search, additional directories, base URL, API key, and environment variables
 - Microsoft Agent Framework integration through `CodexSdk.MAF`
+- Typed Codex app-server protocol access through `CodexSdk.AppServer`
+- Microsoft Agent Framework integration backed by the app-server through `CodexSdk.AppServer.MAF`
 - .NET 10.0 target with nullable reference types and implicit usings enabled
 
 ## Installation
@@ -49,6 +53,20 @@ For Microsoft Agent Framework support:
 
 ```bash
 dotnet add package CodexSdk.MAF --prerelease
+```
+
+### Codex app-server (Optional)
+
+For typed access to the Codex app-server protocol:
+
+```bash
+dotnet add package CodexSdk.AppServer --prerelease
+```
+
+For Microsoft Agent Framework integration through the app-server:
+
+```bash
+dotnet add package CodexSdk.AppServer.MAF --prerelease
 ```
 
 ## Prerequisites
@@ -277,6 +295,95 @@ The `CodexSdk.MAF` package provides a `Microsoft.Agents.AI` bridge backed by Cod
 - Uses `IsResume` to resume an existing Codex thread selected by options
 - Accepts an optional `ChatHistoryProvider`
 
+## Codex App Server Integration
+
+The `CodexSdk.AppServer` package starts `codex app-server`, completes the JSON-RPC handshake, and exposes typed protocol requests and notifications. Version 2 request and response models are in `OpenAI.CodexSdk.AppServer.Protocol`; `initialize` models are in `OpenAI.CodexSdk.AppServer.Protocol.V1`.
+
+```csharp
+using OpenAI.CodexSdk.AppServer;
+using OpenAI.CodexSdk.AppServer.Protocol;
+
+await using var client = await CodexAppServerClient.StartAsync(new CodexAppServerClientOptions());
+var thread = await client.ThreadStartAsync(new ThreadStartParams());
+var completions = client.SubscribeTurnCompleted(thread.Thread.Id);
+
+var turn = await client.TurnStartAsync(new TurnStartParams
+{
+    ThreadId = thread.Thread.Id,
+    Input = [new TextUserInput { Text = "Explain what this repository does in one paragraph." }],
+});
+
+await foreach (var notification in completions)
+{
+    if (notification.Parameters.Turn.Id != turn.Turn.Id)
+    {
+        continue;
+    }
+
+    if (notification.Parameters.Turn.Status == TurnStatus.Failed)
+    {
+        var error = notification.Parameters.Turn.Error.GetValueOrDefault();
+        throw new InvalidOperationException(error?.Message ?? "The Codex app-server turn failed.");
+    }
+
+    Console.WriteLine($"Completed turn: {notification.Parameters.Turn.Id}");
+    break;
+}
+```
+
+The `CodexSdk.AppServer.MAF` package provides the `CodexAppServerAIAgent` Microsoft Agent Framework integration. It uses a connected app-server client and can keep conversation state in a session:
+
+`CodexAppServerAIAgentOptions.OnResponseUpdateAsync` is awaited before each converted update is accumulated or delivered, allowing an application to complete its persistence work before exposing output. `ConfigureThreadResume` applies current provider, working-directory, and other typed overrides when a serialized session is resumed; the SDK preserves the session's thread ID and rejects replacement history or paths. The application continues to own and dispose the connected client.
+
+```csharp
+using OpenAI.CodexSdk.AppServer;
+using OpenAI.CodexSdk.AppServer.MAF;
+
+await using var client = await CodexAppServerClient.StartAsync(new CodexAppServerClientOptions());
+var agent = new CodexAppServerAIAgent(client);
+var session = await agent.CreateSessionAsync();
+var response = await agent.RunAsync("Explain what this repository does in one paragraph.", session);
+
+Console.WriteLine(response.Text);
+```
+
+When the Codex CLI executable is not available on `PATH`, set `CodexAppServerClientOptions.ExecutablePath` to its executable path:
+
+```csharp
+var options = new CodexAppServerClientOptions { ExecutablePath = "/path/to/codex" };
+await using var client = await CodexAppServerClient.StartAsync(options);
+```
+
+See [the AppServer samples](samples/AppServerSamples) for runnable examples of typed protocol calls, command approvals, MAF session serialization and resumption, and image input.
+
+The packages target .NET 10 and the pinned Codex 0.163.0 protocol: 172 client requests, 11 server request handlers, 85 public notifications, `initialized`, and the two raw-response notifications. Models and named client methods are compiled from the [official schema snapshots](src/CodexSdk.AppServer/Protocol/Schema). `Optional<T>` preserves field presence: `default` omits a field, `new Optional<string?>(null)` supplies JSON `null`, and a concrete value supplies that value. Protocol JSON can be read with `AppServerJson.Deserialize<T>` or serialized with `AppServerJson.CreateOptions()`.
+
+Each `Subscribe...` call creates an independent notification stream and accepts thread/turn filters. Call it before sending the request whose notifications you need. `Register...Handler` methods accept typed asynchronous handlers for approvals, user input, dynamic tools, authentication refresh, and the other server requests. Unregistered handlers return an RPC error. Request cancellation cancels the local RPC wait; `TurnInterruptAsync` interrupts an active turn. The MAF adapter interrupts its owned turn when execution is canceled or conversion fails and rejects concurrent execution on the same session.
+
+`StartAsync` owns its Codex process. `ConnectAsync(IJsonRpcMessageHandler, ...)` accepts an existing transport and owns the supplied handler; use `CodexAppServerClient.CreateTransportFormatter()` when constructing it to retain message bytes until typed deserialization completes. This entry point supports a future WebSocket message handler. The current package supplies the local stdio connection. Startup arguments, working directory, and handshake timeout are configured through `CodexAppServerClientOptions`.
+
+### App-server images
+
+The MAF adapter emits generated PNG images and viewed local images as byte-backed `DataContent` in `AgentResponseUpdate.Contents`. It reads each completed `imageView` immediately and determines the MIME type with MimeTypesMap. Inline MCP images and dynamic-tool image data URIs follow the same conversion. Remote image URLs remain `UriContent`. Tool images retain their tool metadata; `threadId`, `turnId`, `itemId`, available `callId`, and `contentIndex` are attached to the content. A tool item's ID also supplies MAF's required correlation ID when its protocol event has no separate call ID.
+
+Image content includes `imageSource` (`imageGeneration`, `imageView`, `mcpTool`, `dynamicTool`, or `functionOutput`). Reasoning content includes `reasoningKind` (`summary` or `content`), because those two parts have independent content indexes. Preserve both the kind and the index when grouping reasoning updates.
+
+```csharp
+using Microsoft.Extensions.AI;
+
+await foreach (var update in agent.RunStreamingAsync("Generate an image, then view it.", session))
+{
+    foreach (var image in update.Contents.OfType<DataContent>())
+    {
+        Console.WriteLine($"{image.MediaType}: {image.Data.Length} bytes");
+    }
+}
+```
+
+Streaming and buffered runs share the converter. Image bytes are retained in the returned content and in an optional `ChatHistoryProvider`. Duplicate completed events are ignored by event identity; distinct image-view items using the same path each capture their own bytes. Invalid Base64, missing files, unsupported image MIME types, and failed image generation report errors.
+
+Session serialization preserves the thread ID and history-provider state. Restored runs continue to use standard image events. Historical `imageView` items provide a path; reading that path obtains its current bytes, so past file contents require a previously saved `DataContent` snapshot. Raw-response subscriptions are available on the core SDK. Enable experimental capabilities explicitly in the initialization options and the relevant request options; MAF image conversion uses the standard events.
+
 ## Configuration
 
 ### Environment Variables
@@ -375,6 +482,15 @@ dotnet test --project tests/CodexSdk.Tests --filter-class '*CodexCliStartupTests
 
 These tests use the pinned npm Codex package and real processes to query `--version`, including a child test process with a restricted inherited PATH. They require no Codex credentials. See [the fixture instructions](tests/fixtures/codex-cli/README.md).
 
+Run the real app-server component tests from the repository root with Node.js installed:
+
+```bash
+npm ci --prefix tests/fixtures/codex-app-server --ignore-scripts --no-audit --no-fund
+dotnet test --project tests/CodexSdk.AppServer.Tests --filter-class '*TransportProcessTests'
+```
+
+This test starts the pinned Codex CLI's `app-server` process and verifies the handshake and process cleanup. It requires no Codex credentials. See [the app-server fixture instructions](tests/fixtures/codex-app-server/README.md).
+
 ### Formatting
 
 ```bash
@@ -385,7 +501,13 @@ dotnet format codexsdk.slnx
 
 ```bash
 dotnet run --project samples/samples.csproj
+dotnet run --project samples/AppServerSamples/AppServerSamples.csproj -- protocol
+dotnet run --project samples/AppServerSamples/AppServerSamples.csproj -- approval
+dotnet run --project samples/AppServerSamples/AppServerSamples.csproj -- maf
+dotnet run --project samples/AppServerSamples/AppServerSamples.csproj -- image ./image.png
 ```
+
+Pass `--codex-path <executable-path>` after the mode (or after the image path) when the Codex CLI is installed outside `PATH`. The approval sample prompts before accepting a requested command.
 
 ### Packaging NuGet Packages
 
@@ -407,6 +529,7 @@ The `samples/` folder contains runnable examples:
 - `StructuredOutput` - JSON Schema output with `TurnOptions.OutputSchema`
 - `ImageAndResume` - local image input and thread resumption
 - `CodexMafAgent` - Microsoft Agent Framework integration, streaming, buffered responses, and session serialization
+- `AppServerSamples` - typed app-server protocol requests and notification streams, command approval handlers, MAF session serialization and resumption, and image input
 
 Run all enabled samples:
 

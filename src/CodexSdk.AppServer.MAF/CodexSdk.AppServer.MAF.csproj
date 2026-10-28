@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>OpenAI.CodexSdk.AppServer.MAF</RootNamespace>
+    <PackageVersion>0.0.5</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Agents.AI" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="MimeTypesMap" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../CodexSdk.AppServer/CodexSdk.AppServer.csproj" />
+    <InternalsVisibleTo Include="CodexSdk.AppServer.MAF.Tests" />
+  </ItemGroup>
+</Project>

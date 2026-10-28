@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>OpenAI.CodexSdk.AppServer</RootNamespace>
+    <PackageVersion>0.0.5</PackageVersion>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)generated</CompilerGeneratedFilesOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="StreamJsonRpc" />
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="JsonSchema.Net" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <ProjectReference Include="../CodexSdk.AppServer.Generator/CodexSdk.AppServer.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../CodexSdk/Utils/*.cs" Link="Internal/CommandLookup/%(Filename)%(Extension)" />
+    <AdditionalFiles Include="Protocol/Schema/codex-0.163.0.json" />
+    <AdditionalFiles Include="Protocol/Schema/codex-0.163.0-v2.json" />
+    <EmbeddedResource Include="Protocol/Schema/codex-0.163.0.json" LogicalName="CodexSdk.AppServer.Protocol.Schema.json" />
+    <EmbeddedResource Include="Protocol/Schema/codex-0.163.0-v2.json" LogicalName="CodexSdk.AppServer.Protocol.Schema.V2.json" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="Protocol/Schema/codex-0.163.0.json" Pack="true" PackagePath="schema/" />
+    <None Include="Protocol/Schema/codex-0.163.0-v2.json" Pack="true" PackagePath="schema/" />
+    <InternalsVisibleTo Include="CodexSdk.AppServer.Tests" />
+    <InternalsVisibleTo Include="CodexSdk.AppServer.MAF" />
+  </ItemGroup>
+</Project>
